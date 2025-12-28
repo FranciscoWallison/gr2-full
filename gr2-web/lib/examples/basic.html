@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GR2 File Renderer - Basic Example</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      background: #1a1a1a;
+      color: #fff;
+    }
+
+    #container {
+      width: 100%;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #controls {
+      background: #2a2a2a;
+      padding: 20px;
+      border-bottom: 2px solid #3a3a3a;
+    }
+
+    #controls h1 {
+      margin: 0 0 20px 0;
+      font-size: 24px;
+    }
+
+    #controls button {
+      background: #4a9eff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      margin-right: 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    #controls button:hover {
+      background: #3a8eef;
+    }
+
+    #controls input[type="file"] {
+      display: none;
+    }
+
+    #info {
+      margin-top: 20px;
+      padding: 10px;
+      background: #333;
+      border-radius: 4px;
+      font-size: 12px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    #info pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    #render-container {
+      flex: 1;
+      position: relative;
+    }
+
+    #loading {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 18px;
+      display: none;
+    }
+
+    .error {
+      color: #ff4a4a;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <div id="controls">
+      <h1>🎮 GR2 File Renderer</h1>
+
+      <input type="file" id="fileInput" accept=".gr2" />
+      <button id="loadFileBtn">
+        📁 Load GR2 File
+      </button>
+
+      <button id="loadExample1Btn">
+        🎨 Load Example 1
+      </button>
+
+      <button id="loadExample2Btn">
+        🚩 Load Example 2
+      </button>
+
+      <button id="loadExample3Btn">
+        🛡️ Load Example 3
+      </button>
+
+      <button id="toggleWireframeBtn">
+        🔲 Toggle Wireframe
+      </button>
+
+      <button id="toggleRotationBtn">
+        🔄 Toggle Rotation
+      </button>
+
+      <div id="info"></div>
+    </div>
+
+    <div id="render-container">
+      <div id="loading">Loading...</div>
+    </div>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    // Simple GR2 loader (simplified version for demo)
+    // In production, you would import from the built library
+
+    let scene, camera, renderer, controls;
+    let currentModel = null;
+    let isRotating = false;
+    let isWireframe = false;
+
+    function init() {
+      // Create scene
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x1a1a1a);
+
+      // Create camera
+      const container = document.getElementById('render-container');
+      camera = new THREE.PerspectiveCamera(
+        45,
+        container.clientWidth / container.clientHeight,
+        1,
+        10000
+      );
+      camera.position.set(25, 35, 25);
+
+      // Create renderer
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(container.clientWidth, container.clientHeight);
+      container.appendChild(renderer.domElement);
+
+      // Add controls
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.target.set(0, 10, 0);
+      controls.update();
+
+      // Add lights
+      const ambient = new THREE.AmbientLight(0x404040);
+      scene.add(ambient);
+
+      const directional = new THREE.DirectionalLight(0xffffff, 0.5);
+      directional.position.set(0, 20, -50);
+      scene.add(directional);
+
+      // Add helpers
+      const axesHelper = new THREE.AxesHelper(100);
+      scene.add(axesHelper);
+
+      const gridHelper = new THREE.GridHelper(100, 10);
+      scene.add(gridHelper);
+
+      // Handle window resize
+      window.addEventListener('resize', onWindowResize);
+
+      // Setup event listeners
+      setupEventListeners();
+
+      // Start animation loop
+      animate();
+
+      showInfo('Ready! This is a demo version.\n\nNote: Full GR2 parsing requires building the TypeScript library.\nFor now, this shows the basic Three.js setup.');
+    }
+
+    function setupEventListeners() {
+      document.getElementById('loadFileBtn').addEventListener('click', () => {
+        document.getElementById('fileInput').click();
+      });
+
+      document.getElementById('fileInput').addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (file) {
+          showInfo('File selected: ' + file.name + '\n\nFull parsing requires the compiled TypeScript library.');
+        }
+      });
+
+      document.getElementById('loadExample1Btn').addEventListener('click', () => {
+        loadDemoModel('Example 1');
+      });
+
+      document.getElementById('loadExample2Btn').addEventListener('click', () => {
+        loadDemoModel('Example 2');
+      });
+
+      document.getElementById('loadExample3Btn').addEventListener('click', () => {
+        loadDemoModel('Example 3');
+      });
+
+      document.getElementById('toggleWireframeBtn').addEventListener('click', () => {
+        isWireframe = !isWireframe;
+        if (currentModel) {
+          currentModel.traverse((object) => {
+            if (object.material) {
+              object.material.wireframe = isWireframe;
+            }
+          });
+        }
+      });
+
+      document.getElementById('toggleRotationBtn').addEventListener('click', () => {
+        isRotating = !isRotating;
+      });
+    }
+
+    function loadDemoModel(name) {
+      // Remove previous model
+      if (currentModel) {
+        scene.remove(currentModel);
+      }
+
+      // Create a demo cube to show the renderer is working
+      const geometry = new THREE.BoxGeometry(10, 10, 10);
+      const material = new THREE.MeshLambertMaterial({
+        color: 0x4a9eff,
+        wireframe: isWireframe
+      });
+      currentModel = new THREE.Mesh(geometry, material);
+      currentModel.position.set(0, 5, 0);
+
+      scene.add(currentModel);
+
+      showInfo(`Demo model loaded: ${name}\n\nThis is a placeholder cube.\nTo load actual GR2 files, build the TypeScript library:\n\n1. npm install\n2. npm run build\n3. Use the compiled dist/index.js`);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      if (currentModel && isRotating) {
+        currentModel.rotation.y += 0.01;
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    function onWindowResize() {
+      const container = document.getElementById('render-container');
+      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(container.clientWidth, container.clientHeight);
+    }
+
+    function showInfo(message, isError = false) {
+      const info = document.getElementById('info');
+      info.innerHTML = `<pre class="${isError ? 'error' : ''}">${message}</pre>`;
+    }
+
+    // Initialize on load
+    init();
+  </script>
+</body>
+</html>

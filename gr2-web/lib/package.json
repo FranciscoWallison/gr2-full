@@ -1,0 +1,36 @@
+{
+  "name": "gr2-file-renderer",
+  "version": "1.0.0",
+  "description": "Modern TypeScript library for parsing and rendering Granny2 (.gr2) 3D model files",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "jest",
+    "serve": "npx http-server . -p 8080 -o examples/basic.html"
+  },
+  "keywords": [
+    "gr2",
+    "granny2",
+    "3d",
+    "model",
+    "parser",
+    "three.js",
+    "renderer"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/three": "^0.160.0",
+    "typescript": "^5.0.0",
+    "http-server": "^14.1.1"
+  },
+  "dependencies": {
+    "three": "^0.160.0"
+  },
+  "peerDependencies": {
+    "three": ">=0.150.0"
+  }
+}
