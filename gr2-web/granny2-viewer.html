@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -132,7 +133,8 @@
       margin-bottom: 16px;
     }
 
-    .drop-zone:hover, .drop-zone.dragover {
+    .drop-zone:hover,
+    .drop-zone.dragover {
       border-color: var(--accent-blue);
       background: rgba(99, 102, 241, 0.1);
     }
@@ -554,7 +556,9 @@
     }
 
     @keyframes spin {
-      to { transform: rotate(360deg); }
+      to {
+        transform: rotate(360deg);
+      }
     }
 
     /* Scrollbar */
@@ -588,10 +592,25 @@
       text-transform: uppercase;
     }
 
-    .state-badge.ready { background: rgba(34, 197, 94, 0.2); color: var(--accent-green); }
-    .state-badge.loading { background: rgba(99, 102, 241, 0.2); color: var(--accent-blue); }
-    .state-badge.error { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); }
-    .state-badge.playing { background: rgba(168, 85, 247, 0.2); color: var(--accent-purple); }
+    .state-badge.ready {
+      background: rgba(34, 197, 94, 0.2);
+      color: var(--accent-green);
+    }
+
+    .state-badge.loading {
+      background: rgba(99, 102, 241, 0.2);
+      color: var(--accent-blue);
+    }
+
+    .state-badge.error {
+      background: rgba(239, 68, 68, 0.2);
+      color: var(--accent-red);
+    }
+
+    .state-badge.playing {
+      background: rgba(168, 85, 247, 0.2);
+      color: var(--accent-purple);
+    }
 
     /* Tabs */
     .tabs {
@@ -639,9 +658,17 @@
       color: var(--text-muted);
     }
 
-    .log-entry.success { color: var(--accent-green); }
-    .log-entry.error { color: var(--accent-red); }
-    .log-entry.info { color: var(--accent-cyan); }
+    .log-entry.success {
+      color: var(--accent-green);
+    }
+
+    .log-entry.error {
+      color: var(--accent-red);
+    }
+
+    .log-entry.info {
+      color: var(--accent-cyan);
+    }
 
     /* Texture preview */
     .texture-preview {
@@ -659,6 +686,7 @@
     }
   </style>
 </head>
+
 <body>
   <!-- Loading Overlay -->
   <div class="loading-overlay" id="loadingOverlay">
@@ -842,8 +870,11 @@
       <div class="timeline-container">
         <div class="timeline-header">
           <div style="display: flex; align-items: center; gap: 12px;">
-            <span style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary);">Animation Timeline</span>
-            <select id="animationSelect" style="background: var(--bg-primary); border: 1px solid var(--border); color: var(--text-primary); padding: 4px 8px; border-radius: 4px; font-size: 11px;">
+            <span
+              style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary);">Animation
+              Timeline</span>
+            <select id="animationSelect"
+              style="background: var(--bg-primary); border: 1px solid var(--border); color: var(--text-primary); padding: 4px 8px; border-radius: 4px; font-size: 11px;">
               <option value="">No Animation</option>
             </select>
           </div>
@@ -851,10 +882,12 @@
           <div class="timeline-controls">
             <button class="btn icon-only" id="playBtn" title="Play/Pause" disabled>▶</button>
             <button class="btn icon-only" id="stopBtn" title="Stop" disabled>◼</button>
-            <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-secondary); margin-left: 8px;">
+            <span
+              style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-secondary); margin-left: 8px;">
               <span id="currentFrame">0</span> / <span id="totalFrames">0</span>
             </span>
-            <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--accent-cyan); margin-left: 8px;">
+            <span
+              style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--accent-cyan); margin-left: 8px;">
               <span id="currentTime">0.00</span>s
             </span>
           </div>
@@ -878,7 +911,7 @@
   <!-- Debug helpers -->
   <script>
     function dbg_assert(cond) {
-      if(!cond) {
+      if (!cond) {
         console.log("Assertion failure");
       }
     }
@@ -1138,41 +1171,62 @@
       }
 
       const skeleton = info.Skeletons[0];
+      document.getElementById('statBones').textContent = skeleton.BoneCount;
 
-      // Try to read bone names
-      if (skeleton.BoneCount > 0 && skeleton.Bones) {
-        for (let i = 0; i < Math.min(skeleton.BoneCount, 50); i++) {
-          try {
-            const bonePtr = APP.gr2.runtime.get_dword_ptr(skeleton.Bones + i * 4);
-            if (bonePtr) {
-              const bone = Granny2.readStructure(
-                APP.gr2.runtime.cpu,
-                bonePtr,
-                Granny2.structs.granny_bone
-              );
+      // Validação de ponteiro - endereços > 0x10000000 provavelmente são inválidos
+      const MAX_VALID_ADDR = 0x10000000;
 
-              const div = document.createElement('div');
-              div.className = 'bone-node';
-              div.innerHTML = `
-                <span class="bone-indicator"></span>
-                <span>${bone.Name || 'bone_' + i}</span>
-                <span style="color: var(--text-muted); margin-left: auto; font-size: 10px;">P:${bone.ParentIndex}</span>
-              `;
-              container.appendChild(div);
-            }
-          } catch (e) {
-            // Skip errors for individual bones
-          }
-        }
-
-        if (skeleton.BoneCount > 50) {
-          container.innerHTML += `<div style="color: var(--text-muted); font-size: 11px; padding: 4px;">...and ${skeleton.BoneCount - 50} more bones</div>`;
-        }
+      if (!skeleton.Bones || skeleton.Bones > MAX_VALID_ADDR) {
+        container.innerHTML = `<div style="color: var(--text-muted);">Bones pointer invalid: 0x${(skeleton.Bones || 0).toString(16)}</div>`;
+        log(`Invalid Bones pointer: 0x${(skeleton.Bones || 0).toString(16)}`, 'error');
+        return;
       }
 
-      document.getElementById('statBones').textContent = skeleton.BoneCount;
-    }
+      const maxBones = Math.min(skeleton.BoneCount, 30); // Limitar para evitar travamento
 
+      for (let i = 0; i < maxBones; i++) {
+        try {
+          const boneAddr = skeleton.Bones + (i * 148);
+
+
+          // Bones pode ser array contíguo OU array de ponteiros; tenta os dois.
+          let bonePtr = 0;
+          try {
+            const ptrCandidate = APP.gr2.runtime.get_dword_ptr(skeleton.Bones + (i * 4));
+            bonePtr = (ptrCandidate && ptrCandidate < MAX_VALID_ADDR) ? ptrCandidate : boneAddr;
+          } catch (e) {
+            bonePtr = boneAddr;
+          }
+          // Validar ponteiro antes de ler
+          if (!bonePtr || bonePtr > MAX_VALID_ADDR) {
+            log(`Bone ${i}: Invalid pointer 0x${(bonePtr || 0).toString(16)}`, 'error');
+            continue;
+          }
+
+          const bone = Granny2.readStructure(
+            APP.gr2.runtime.cpu,
+            bonePtr,
+            Granny2.structs.granny_bone
+          );
+
+          // Nome com fallback seguro
+          const boneName = (bone && bone.Name) ? bone.Name : `bone_${i}`;
+          const parentIdx = (bone && typeof bone.ParentIndex === 'number') ? bone.ParentIndex : -1;
+
+          const div = document.createElement('div');
+          div.className = 'bone-node';
+          div.innerHTML = `
+        <span class="bone-indicator"></span>
+        <span>${boneName}</span>
+        <span style="color: var(--text-muted); margin-left: auto; font-size: 10px;">P:${parentIdx}</span>
+      `;
+          container.appendChild(div);
+        } catch (e) {
+          log(`Error reading bone ${i}: ${e.message}`, 'error');
+          break; // Para no primeiro erro para evitar loop
+        }
+      }
+    }
     function updateAnimationList(info) {
       const select = document.getElementById('animationSelect');
       select.innerHTML = '<option value="">No Animation</option>';
@@ -1371,41 +1425,17 @@
         return;
       }
 
-      // Clear existing mesh
+      // Clear existing model
       if (APP.mesh3d) {
         APP.scene.remove(APP.mesh3d);
       }
 
       log('Rendering model...', 'info');
-
       const info = APP.fileInfo;
 
-      // Get all meshes
-      const allVertices = [];
-      const allIndices = [];
-
-      for (let i = 0; i < info.MeshCount; i++) {
-        try {
-          const mesh = info.Meshes[i];
-          const vertices = APP.gr2.CopyMeshVertices(mesh._ptr);
-          const indices = APP.gr2.CopyMeshIndices(mesh._ptr);
-
-          allVertices.push(vertices);
-          allIndices.push(indices);
-
-          const vertexCount = APP.gr2.GetMeshVertexCount(mesh._ptr);
-          log(`Mesh ${i}: ${vertexCount} vertices`, 'info');
-        } catch (e) {
-          log(`Error loading mesh ${i}: ${e.message}`, 'error');
-        }
-      }
-
-      if (allVertices.length === 0) {
-        log('No vertex data to render', 'error');
-        return;
-      }
-
-      // Get textures
+      // ─────────────────────────────────────────────────────────────
+      // Load textures (store ptr + THREE texture so we can map materials)
+      // ─────────────────────────────────────────────────────────────
       APP.textures = [];
       const textureContainer = document.getElementById('texturePreview');
       textureContainer.innerHTML = '';
@@ -1419,136 +1449,204 @@
           const canvas = document.createElement('canvas');
           canvas.width = tex.Width;
           canvas.height = tex.Height;
+
           const ctx = canvas.getContext('2d');
           const imgd = ctx.getImageData(0, 0, tex.Width, tex.Height);
-          for (let j = 0; j < texData.length; j++) {
-            imgd.data[j] = texData[j];
-          }
+          imgd.data.set(texData);
           ctx.putImageData(imgd, 0, 0);
 
-          APP.textures.push(canvas);
-          textureContainer.appendChild(canvas);
+          const threeTex = new THREE.CanvasTexture(canvas);
+          threeTex.needsUpdate = true;
 
+          const hasAlpha = (APP.gr2.TextureHasAlpha) ? APP.gr2.TextureHasAlpha(texPtr) : false;
+
+          APP.textures.push({
+            index: i,
+            ptr: texPtr,          // granny_texture*
+            info: tex,
+            canvas,
+            threeTexture: threeTex,
+            hasAlpha
+          });
+
+          textureContainer.appendChild(canvas);
           log(`Texture ${i}: ${tex.Width}x${tex.Height}`, 'success');
         } catch (e) {
           log(`Error loading texture ${i}: ${e.message}`, 'error');
         }
       }
 
-      // Create 3D geometry
-      createGeometry(allVertices, allIndices, APP.textures);
-    }
+      // ─────────────────────────────────────────────────────────────
+      // Build material -> textureIndex map (same idea as texture-debug)
+      // ─────────────────────────────────────────────────────────────
+      const materialToTexture = new Map(); // matPtr -> textureIndex
 
-    function createGeometry(verticesArr, indicesArr, textures) {
-      if (!verticesArr || verticesArr.length === 0) {
-        return;
+      if (info.Materials && info.MaterialCount > 0) {
+        for (let m = 0; m < info.MaterialCount; m++) {
+          const matPtr = APP.gr2.runtime.get_dword_ptr(info.Materials + 4 * m);
+          try {
+            const matInfo = Granny2.readStructure(APP.gr2.runtime.cpu, matPtr, Granny2.structs.granny_material);
+
+            // Direct link: matInfo.Texture points to a granny_texture*
+            if (matInfo.Texture) {
+              const idx = APP.textures.findIndex(t => t.ptr === matInfo.Texture);
+              if (idx >= 0) materialToTexture.set(matPtr, idx);
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
+
+        // Optional: resolve via Maps (if present). This mirrors texture-debug behavior.
+        for (let m = 0; m < info.MaterialCount; m++) {
+          const matPtr = APP.gr2.runtime.get_dword_ptr(info.Materials + 4 * m);
+          if (materialToTexture.has(matPtr)) continue;
+
+          try {
+            const matInfo = Granny2.readStructure(APP.gr2.runtime.cpu, matPtr, Granny2.structs.granny_material);
+            if (matInfo.MapCount > 0 && matInfo.Maps) {
+              for (let mapIdx = 0; mapIdx < matInfo.MapCount; mapIdx++) {
+                // granny_material_map = 8 bytes: char* Usage + void* Material
+                const mapPtr = matInfo.Maps + mapIdx * 8;
+                const refMatPtr = APP.gr2.runtime.get_dword_ptr(mapPtr + 4);
+                if (materialToTexture.has(refMatPtr)) {
+                  materialToTexture.set(matPtr, materialToTexture.get(refMatPtr));
+                  break;
+                }
+              }
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
       }
 
-      const geometry = new THREE.Geometry();
-      const vertexNormals = [];
-      const uvs = [];
-
+      // ─────────────────────────────────────────────────────────────
+      // Render each mesh separately (fixes index offset + per-mesh textures)
+      // ─────────────────────────────────────────────────────────────
+      const group = new THREE.Group();
       let totalVertices = 0;
       let totalTriangles = 0;
 
-      // Process all mesh vertices
-      for (let m = 0; m < verticesArr.length; m++) {
-        const vertices = verticesArr[m];
-        if (!vertices || vertices.length === 0) continue;
+      for (let i = 0; i < info.MeshCount; i++) {
+        try {
+          const meshInfo = info.Meshes[i];
 
-        const PNT332 = new Float32Array(vertices.buffer);
-        const vertexCount = PNT332.length / 8;
+          const vertices = APP.gr2.CopyMeshVertices(meshInfo._ptr);
+          const meshIndices = APP.gr2.CopyMeshIndices(meshInfo._ptr);
 
-        for (let i = 0; i < vertexCount; i++) {
-          const vx = PNT332[i * 8 + 0];
-          const vy = PNT332[i * 8 + 1];
-          const vz = PNT332[i * 8 + 2];
-          const nx = PNT332[i * 8 + 3];
-          const ny = PNT332[i * 8 + 4];
-          const nz = PNT332[i * 8 + 5];
-          const tx = PNT332[i * 8 + 6];
-          const ty = PNT332[i * 8 + 7];
+          const built = createGeometry(vertices, meshIndices);
+          if (!built) continue;
 
-          geometry.vertices.push(new THREE.Vector3(vx, vy, vz));
-          vertexNormals.push(new THREE.Vector3(nx, ny, nz));
-          uvs.push(new THREE.Vector2(tx, 1.0 - ty));
-        }
+          totalVertices += built.vertexCount;
+          totalTriangles += built.triangleCount;
 
-        totalVertices += vertexCount;
-      }
+          // Resolve texture for this mesh via MaterialBindings
+          let texIndex = -1;
+          if (meshInfo.MaterialBindings && meshInfo.MaterialsBindingCount > 0) {
+            for (let mb = 0; mb < meshInfo.MaterialsBindingCount; mb++) {
+              const matPtr = APP.gr2.runtime.get_dword_ptr(meshInfo.MaterialBindings + 4 * mb);
+              if (materialToTexture.has(matPtr)) {
+                texIndex = materialToTexture.get(matPtr);
+                break;
+              }
+            }
+          }
+          if (texIndex < 0 && APP.textures.length > 0) texIndex = 0;
 
-      // Process all mesh indices
-      for (let m = 0; m < indicesArr.length; m++) {
-        const indices = indicesArr[m];
-        if (!indices || indices.length === 0) continue;
-
-        const meshIndices = new Uint16Array(indices.buffer);
-        const triangleCount = meshIndices.length / 3;
-
-        for (let i = 0; i < triangleCount; i++) {
-          const a = meshIndices[i * 3 + 0];
-          const b = meshIndices[i * 3 + 1];
-          const c = meshIndices[i * 3 + 2];
-
-          if (a >= geometry.vertices.length || b >= geometry.vertices.length || c >= geometry.vertices.length) {
-            continue;
+          let material;
+          if (texIndex >= 0 && APP.textures[texIndex]) {
+            material = new THREE.MeshLambertMaterial({
+              map: APP.textures[texIndex].threeTexture,
+              side: THREE.DoubleSide,
+              wireframe: APP.showWireframe === true,
+              transparent: !!APP.textures[texIndex].hasAlpha,
+              alphaTest: APP.textures[texIndex].hasAlpha ? 0.1 : 0
+            });
+          } else {
+            material = new THREE.MeshLambertMaterial({
+              color: 0x888888,
+              side: THREE.DoubleSide,
+              wireframe: APP.showWireframe === true
+            });
           }
 
-          const face = new THREE.Face3(a, b, c);
+          const mesh = new THREE.Mesh(built.geometry, material);
+          mesh.name = meshInfo.Name || `Mesh_${i}`;
+          mesh.userData._texIndex = texIndex;
+          mesh.userData._baseMap = material.map || null;
 
-          if (vertexNormals[a]) face.vertexNormals[0] = vertexNormals[a];
-          if (vertexNormals[b]) face.vertexNormals[1] = vertexNormals[b];
-          if (vertexNormals[c]) face.vertexNormals[2] = vertexNormals[c];
-
-          geometry.faces.push(face);
-
-          if (uvs[a] && uvs[b] && uvs[c]) {
-            geometry.faceVertexUvs[0].push([uvs[a], uvs[b], uvs[c]]);
-          }
-
-          totalTriangles++;
+          group.add(mesh);
+          log(`Mesh ${i}: ${built.vertexCount} vertices`, 'info');
+        } catch (e) {
+          log(`Error loading mesh ${i}: ${e.message}`, 'error');
         }
       }
 
-      geometry.computeFaceNormals();
-      geometry.computeVertexNormals();
-
-      // Coordinate conversion (Y-up to Z-up)
-      geometry.applyMatrix(new THREE.Matrix4().set(
+      // Apply coordinate system transform (GR2 -> Three.js)
+      group.applyMatrix4(new THREE.Matrix4().set(
         1, 0, 0, 0,
         0, 0, 1, 0,
         0, 1, 0, 0,
         0, 0, 0, 1
       ));
 
-      // Create material
-      let material;
-      if (textures && textures.length > 0) {
-        const texture = new THREE.Texture(textures[0]);
-        texture.needsUpdate = true;
-        material = new THREE.MeshLambertMaterial({
-          color: 0xffffff,
-          map: texture,
-          side: THREE.BackSide
-        });
-        log('Using textured material', 'success');
-      } else {
-        material = new THREE.MeshLambertMaterial({
-          color: 0x888888,
-          side: THREE.DoubleSide
-        });
-        log('Using default material (no texture)', 'info');
-      }
-
-      APP.mesh3d = new THREE.Mesh(geometry, material);
+      APP.mesh3d = group;
+      APP.mesh3d.visible = APP.showMesh !== false;
       APP.scene.add(APP.mesh3d);
 
-      // Update stats
       document.getElementById('statVertices').textContent = totalVertices.toLocaleString();
       document.getElementById('statTriangles').textContent = totalTriangles.toLocaleString();
-
-      log(`Rendered: ${totalVertices} vertices, ${totalTriangles} triangles`, 'success');
     }
+
+
+    function createGeometry(vertices, meshIndices) {
+      if (!vertices || vertices.length === 0) return null;
+
+      const geometry = new THREE.BufferGeometry();
+
+      const PNT332 = new Float32Array(vertices.buffer);
+      const vertexCount = Math.floor(PNT332.length / 8);
+
+      const positions = new Float32Array(vertexCount * 3);
+      const normals = new Float32Array(vertexCount * 3);
+      const uvs = new Float32Array(vertexCount * 2);
+
+      for (let i = 0; i < vertexCount; i++) {
+        const src = i * 8;
+
+        positions[i * 3 + 0] = PNT332[src + 0];
+        positions[i * 3 + 1] = PNT332[src + 1];
+        positions[i * 3 + 2] = PNT332[src + 2];
+
+        normals[i * 3 + 0] = PNT332[src + 3];
+        normals[i * 3 + 1] = PNT332[src + 4];
+        normals[i * 3 + 2] = PNT332[src + 5];
+
+        // Flip V
+        uvs[i * 2 + 0] = PNT332[src + 6];
+        uvs[i * 2 + 1] = 1.0 - PNT332[src + 7];
+      }
+
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+      geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+
+      // Indices
+      if (meshIndices && meshIndices.buffer) {
+        const idx = new Uint16Array(meshIndices.buffer);
+        geometry.setIndex(new THREE.BufferAttribute(idx, 1));
+      }
+
+      geometry.computeBoundingSphere();
+
+      return {
+        geometry,
+        vertexCount,
+        triangleCount: geometry.index ? (geometry.index.count / 3) : 0
+      };
+    }
+
 
     function onResize() {
       const container = document.getElementById('canvas-container');
@@ -1682,35 +1780,47 @@
       });
 
       // Toggle buttons
-      document.getElementById('toggleMesh').addEventListener('click', function() {
+      document.getElementById('toggleMesh').addEventListener('click', function () {
         this.classList.toggle('active');
         APP.showMesh = this.classList.contains('active');
         if (APP.mesh3d) APP.mesh3d.visible = APP.showMesh;
       });
 
-      document.getElementById('toggleWireframe').addEventListener('click', function() {
+      document.getElementById('toggleWireframe').addEventListener('click', function () {
         this.classList.toggle('active');
         APP.showWireframe = this.classList.contains('active');
-        if (APP.mesh3d) APP.mesh3d.material.wireframe = APP.showWireframe;
+        if (APP.mesh3d) {
+          if (APP.mesh3d.material) {
+            APP.mesh3d.material.wireframe = APP.showWireframe;
+          } else if (APP.mesh3d.children) {
+            APP.mesh3d.children.forEach(ch => ch.material && (ch.material.wireframe = APP.showWireframe));
+          }
+        }
       });
 
-      document.getElementById('toggleSkeleton').addEventListener('click', function() {
+      document.getElementById('toggleSkeleton').addEventListener('click', function () {
         this.classList.toggle('active');
       });
 
-      document.getElementById('toggleTexture').addEventListener('click', function() {
+      document.getElementById('toggleTexture').addEventListener('click', function () {
         this.classList.toggle('active');
         APP.showTexture = this.classList.contains('active');
-        // Toggle texture on material
+
         if (APP.mesh3d && APP.textures.length > 0) {
-          if (APP.showTexture) {
-            const texture = new THREE.Texture(APP.textures[0]);
-            texture.needsUpdate = true;
-            APP.mesh3d.material.map = texture;
-          } else {
-            APP.mesh3d.material.map = null;
+          const enable = APP.showTexture;
+          const applyToMaterial = (mat, baseMap) => {
+            if (!mat) return;
+            mat.map = enable ? (baseMap || mat.map) : null;
+            mat.needsUpdate = true;
+          };
+
+          if (APP.mesh3d.material) {
+            applyToMaterial(APP.mesh3d.material, APP.mesh3d.userData?._baseMap);
+          } else if (APP.mesh3d.children) {
+            APP.mesh3d.children.forEach(ch => {
+              if (ch.material) applyToMaterial(ch.material, ch.userData?._baseMap);
+            });
           }
-          APP.mesh3d.material.needsUpdate = true;
         }
       });
 
@@ -1731,7 +1841,7 @@
 
       // Tabs
       document.querySelectorAll('.tab').forEach(tab => {
-        tab.addEventListener('click', function() {
+        tab.addEventListener('click', function () {
           document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
           document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
 
@@ -1752,4 +1862,5 @@
     });
   </script>
 </body>
+
 </html>

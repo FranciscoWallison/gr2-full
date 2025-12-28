@@ -299,7 +299,7 @@
 								struct[name].push(
 									resolve_struct(
 										cpu, 
-										cpu.memory.read32s(cpu.translate_address_read(arr_base_addr) + 4 * j),
+										cpu.memory.read32s(cpu.translate_address_read(arr_base_addr + 4 * j)),
 										Granny2.structs[base_type]
 									)
 								);
