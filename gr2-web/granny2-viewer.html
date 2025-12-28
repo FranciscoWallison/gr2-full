@@ -1,0 +1,1866 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GR2 3D Viewer - Granny2 Debugger</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg-primary: #0a0a0a;
+      --bg-secondary: #111111;
+      --bg-tertiary: #1a1a1a;
+      --border: #2a2a2a;
+      --text-primary: #e0e0e0;
+      --text-secondary: #888;
+      --text-muted: #555;
+      --accent-blue: #6366f1;
+      --accent-green: #22c55e;
+      --accent-red: #ef4444;
+      --accent-orange: #f59e0b;
+      --accent-purple: #a855f7;
+      --accent-cyan: #06b6d4;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    .app-container {
+      display: grid;
+      grid-template-columns: 320px 1fr 300px;
+      grid-template-rows: 56px 1fr 200px;
+      height: 100vh;
+      gap: 1px;
+      background: var(--border);
+    }
+
+    /* Header */
+    .header {
+      grid-column: 1 / -1;
+      background: var(--bg-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .logo-text {
+      font-size: 18px;
+      font-weight: 700;
+      background: linear-gradient(90deg, var(--accent-blue), var(--accent-green));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .header-controls {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    /* Panels */
+    .panel {
+      background: var(--bg-secondary);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .panel-header {
+      padding: 12px 16px;
+      background: var(--bg-tertiary);
+      border-bottom: 1px solid var(--border);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-secondary);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .panel-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+    }
+
+    /* Left Panel - File Tree */
+    .left-panel {
+      grid-row: 2 / 4;
+    }
+
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 8px;
+      padding: 32px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 16px;
+    }
+
+    .drop-zone:hover,
+    .drop-zone.dragover {
+      border-color: var(--accent-blue);
+      background: rgba(99, 102, 241, 0.1);
+    }
+
+    .drop-zone-icon {
+      font-size: 32px;
+      margin-bottom: 8px;
+    }
+
+    .drop-zone-text {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .drop-zone-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* Quick Select */
+    .quick-select {
+      margin-bottom: 16px;
+    }
+
+    .quick-select-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      display: block;
+    }
+
+    .quick-select select {
+      width: 100%;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .quick-select select:hover {
+      border-color: var(--accent-blue);
+    }
+
+    /* Tree View */
+    .tree-node {
+      padding: 6px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      transition: background 0.1s;
+    }
+
+    .tree-node:hover {
+      background: var(--bg-tertiary);
+    }
+
+    .tree-node.selected {
+      background: rgba(99, 102, 241, 0.2);
+      color: var(--accent-blue);
+    }
+
+    .tree-node-icon {
+      width: 16px;
+      text-align: center;
+    }
+
+    .tree-children {
+      margin-left: 16px;
+      border-left: 1px solid var(--border);
+      padding-left: 8px;
+    }
+
+    /* Viewport */
+    .viewport {
+      position: relative;
+      background: var(--bg-primary);
+    }
+
+    #canvas-container {
+      width: 100%;
+      height: 100%;
+    }
+
+    .viewport-overlay {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .viewport-stats {
+      background: rgba(0, 0, 0, 0.8);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-secondary);
+    }
+
+    .viewport-controls {
+      position: absolute;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 8px;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 8px 12px;
+      border-radius: 8px;
+    }
+
+    /* Right Panel - Properties */
+    .right-panel {
+      grid-row: 2 / 3;
+    }
+
+    .property-group {
+      margin-bottom: 16px;
+    }
+
+    .property-group-header {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .property-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 0;
+      font-size: 12px;
+    }
+
+    .property-label {
+      color: var(--text-secondary);
+    }
+
+    .property-value {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--accent-cyan);
+    }
+
+    /* Bottom Panel - Timeline */
+    .bottom-panel {
+      grid-column: 2 / 4;
+    }
+
+    .timeline-container {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .timeline-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: var(--bg-tertiary);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .timeline-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .timeline-track {
+      flex: 1;
+      position: relative;
+      overflow-x: auto;
+      padding: 12px;
+    }
+
+    .timeline-ruler {
+      height: 24px;
+      background: var(--bg-tertiary);
+      border-radius: 4px;
+      margin-bottom: 8px;
+      position: relative;
+    }
+
+    .timeline-playhead {
+      position: absolute;
+      top: 0;
+      width: 2px;
+      height: 100%;
+      background: var(--accent-red);
+      z-index: 10;
+    }
+
+    .timeline-playhead::before {
+      content: '';
+      position: absolute;
+      top: -4px;
+      left: -4px;
+      width: 10px;
+      height: 10px;
+      background: var(--accent-red);
+      border-radius: 2px;
+      transform: rotate(45deg);
+    }
+
+    .animation-track {
+      height: 32px;
+      background: var(--bg-tertiary);
+      border-radius: 4px;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .animation-track-name {
+      width: 120px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .animation-track-bar {
+      flex: 1;
+      height: 20px;
+      background: rgba(99, 102, 241, 0.3);
+      border-radius: 3px;
+      margin-left: 12px;
+      position: relative;
+    }
+
+    .keyframe {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      background: var(--accent-orange);
+      border-radius: 2px;
+      transform: rotate(45deg) translateY(-50%);
+      top: 50%;
+      cursor: pointer;
+    }
+
+    /* Buttons */
+    .btn {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .btn:hover {
+      background: var(--border);
+      border-color: var(--text-muted);
+    }
+
+    .btn.primary {
+      background: var(--accent-blue);
+      border-color: var(--accent-blue);
+    }
+
+    .btn.primary:hover {
+      background: #5558e6;
+    }
+
+    .btn.icon-only {
+      padding: 6px;
+      width: 28px;
+      height: 28px;
+      justify-content: center;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Toggle Switches */
+    .toggle-group {
+      display: flex;
+      gap: 4px;
+      background: var(--bg-primary);
+      padding: 2px;
+      border-radius: 4px;
+    }
+
+    .toggle-btn {
+      padding: 4px 10px;
+      border-radius: 3px;
+      font-size: 10px;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .toggle-btn.active {
+      background: var(--accent-blue);
+      color: white;
+    }
+
+    /* Hex Viewer */
+    .hex-viewer {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      line-height: 1.6;
+      background: var(--bg-primary);
+      padding: 12px;
+      border-radius: 4px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .hex-line {
+      display: flex;
+      gap: 16px;
+    }
+
+    .hex-offset {
+      color: var(--text-muted);
+      min-width: 60px;
+    }
+
+    .hex-bytes {
+      color: var(--accent-green);
+    }
+
+    .hex-ascii {
+      color: var(--text-secondary);
+    }
+
+    /* Skeleton Tree */
+    .bone-node {
+      padding: 4px 8px;
+      margin: 2px 0;
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .bone-node:hover {
+      background: var(--bg-tertiary);
+    }
+
+    .bone-node.selected {
+      background: rgba(168, 85, 247, 0.2);
+      color: var(--accent-purple);
+    }
+
+    .bone-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-purple);
+    }
+
+    /* Loading state */
+    .loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.9);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      z-index: 100;
+    }
+
+    .loading-overlay.hidden {
+      display: none;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent-blue);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    .loading-text {
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    .loading-status {
+      color: var(--accent-cyan);
+      font-size: 12px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--bg-primary);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
+    }
+
+    /* State badges */
+    .state-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .state-badge.ready {
+      background: rgba(34, 197, 94, 0.2);
+      color: var(--accent-green);
+    }
+
+    .state-badge.loading {
+      background: rgba(99, 102, 241, 0.2);
+      color: var(--accent-blue);
+    }
+
+    .state-badge.error {
+      background: rgba(239, 68, 68, 0.2);
+      color: var(--accent-red);
+    }
+
+    .state-badge.playing {
+      background: rgba(168, 85, 247, 0.2);
+      color: var(--accent-purple);
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 2px;
+      background: var(--bg-primary);
+      padding: 4px;
+      border-radius: 6px;
+    }
+
+    .tab {
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 11px;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab.active {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+    }
+
+    .tab:hover:not(.active) {
+      color: var(--text-primary);
+    }
+
+    /* Log area */
+    .log-area {
+      max-height: 150px;
+      overflow-y: auto;
+      background: var(--bg-primary);
+      border-radius: 4px;
+      padding: 8px;
+      margin-top: 12px;
+    }
+
+    .log-entry {
+      font-size: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      padding: 2px 0;
+      color: var(--text-muted);
+    }
+
+    .log-entry.success {
+      color: var(--accent-green);
+    }
+
+    .log-entry.error {
+      color: var(--accent-red);
+    }
+
+    .log-entry.info {
+      color: var(--accent-cyan);
+    }
+
+    /* Texture preview */
+    .texture-preview {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .texture-preview canvas {
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      max-width: 100px;
+      max-height: 100px;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <div class="loading-text">Loading Granny2 Runtime</div>
+    <div class="loading-status" id="loadingStatus">Initializing...</div>
+  </div>
+
+  <div class="app-container">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo">
+        <div class="logo-icon">G2</div>
+        <span class="logo-text">GR2 VIEWER</span>
+        <span style="font-size: 11px; color: var(--text-muted); margin-left: 8px;">Granny2 3D Debugger</span>
+      </div>
+
+      <div class="header-controls">
+        <div class="toggle-group">
+          <button class="toggle-btn active" id="toggleMesh">Mesh</button>
+          <button class="toggle-btn" id="toggleWireframe">Wire</button>
+          <button class="toggle-btn" id="toggleSkeleton">Bones</button>
+          <button class="toggle-btn active" id="toggleTexture">Texture</button>
+        </div>
+
+        <button class="btn" id="exportBtn" disabled>
+          <span>Export</span>
+        </button>
+
+        <button class="btn primary" id="loadFileBtn" disabled>
+          <span>Load GR2</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Left Panel -->
+    <div class="panel left-panel">
+      <div class="panel-header">
+        <span>File Structure</span>
+        <span id="fileSize">--</span>
+      </div>
+      <div class="panel-content">
+        <div class="drop-zone" id="dropZone">
+          <div class="drop-zone-icon">📦</div>
+          <div class="drop-zone-text">Drop GR2 file here</div>
+          <div class="drop-zone-hint">or click to browse</div>
+        </div>
+
+        <input type="file" id="fileInput" accept=".gr2" style="display: none;">
+
+        <div class="quick-select">
+          <label class="quick-select-label">Quick Load Sample Files:</label>
+          <select id="sampleSelect">
+            <option value="">-- Select Sample --</option>
+            <option value="empelium90_0.gr2">empelium90_0.gr2</option>
+            <option value="kguardian90_7.gr2">kguardian90_7.gr2</option>
+            <option value="guildflag90_1.gr2">guildflag90_1.gr2</option>
+          </select>
+        </div>
+
+        <div id="fileTree"></div>
+
+        <div class="log-area" id="logArea">
+          <div class="log-entry">Ready to load GR2 files...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Viewport -->
+    <div class="viewport" id="viewport">
+      <div id="canvas-container"></div>
+
+      <div class="viewport-overlay">
+        <div class="viewport-stats" id="viewportStats">
+          <div>Vertices: <span id="statVertices">0</span></div>
+          <div>Triangles: <span id="statTriangles">0</span></div>
+          <div>Bones: <span id="statBones">0</span></div>
+          <div>FPS: <span id="statFPS">0</span></div>
+        </div>
+      </div>
+
+      <div class="viewport-controls">
+        <button class="btn icon-only" id="resetCamera" title="Reset Camera">🎯</button>
+        <button class="btn icon-only" id="toggleGrid" title="Toggle Grid">▦</button>
+        <button class="btn icon-only" id="toggleAxes" title="Toggle Axes">✛</button>
+        <button class="btn icon-only" id="screenshot" title="Screenshot">📷</button>
+      </div>
+    </div>
+
+    <!-- Right Panel -->
+    <div class="panel right-panel">
+      <div class="panel-header">
+        <span>Properties</span>
+      </div>
+      <div class="panel-content">
+        <div class="tabs" style="margin-bottom: 12px;">
+          <button class="tab active" data-tab="info">Info</button>
+          <button class="tab" data-tab="skeleton">Skeleton</button>
+          <button class="tab" data-tab="textures">Textures</button>
+          <button class="tab" data-tab="hex">Hex</button>
+        </div>
+
+        <div id="tabInfo" class="tab-content">
+          <div class="property-group">
+            <div class="property-group-header">File Info</div>
+            <div class="property-row">
+              <span class="property-label">Status</span>
+              <span class="property-value" id="propStatus"><span class="state-badge loading">Loading</span></span>
+            </div>
+            <div class="property-row">
+              <span class="property-label">File Name</span>
+              <span class="property-value" id="propFileName">--</span>
+            </div>
+            <div class="property-row">
+              <span class="property-label">Format</span>
+              <span class="property-value" id="propFormat">--</span>
+            </div>
+          </div>
+
+          <div class="property-group">
+            <div class="property-group-header">Model Info</div>
+            <div class="property-row">
+              <span class="property-label">Models</span>
+              <span class="property-value" id="propModels">0</span>
+            </div>
+            <div class="property-row">
+              <span class="property-label">Meshes</span>
+              <span class="property-value" id="propMeshes">0</span>
+            </div>
+            <div class="property-row">
+              <span class="property-label">Materials</span>
+              <span class="property-value" id="propMaterials">0</span>
+            </div>
+            <div class="property-row">
+              <span class="property-label">Textures</span>
+              <span class="property-value" id="propTextures">0</span>
+            </div>
+          </div>
+
+          <div class="property-group">
+            <div class="property-group-header">Animation</div>
+            <div class="property-row">
+              <span class="property-label">Skeletons</span>
+              <span class="property-value" id="propSkeletons">0</span>
+            </div>
+            <div class="property-row">
+              <span class="property-label">Animations</span>
+              <span class="property-value" id="propAnimations">0</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="tabSkeleton" class="tab-content" style="display: none;">
+          <div id="skeletonTree">
+            <div style="color: var(--text-muted); font-size: 12px;">
+              Load a GR2 file to view skeleton
+            </div>
+          </div>
+        </div>
+
+        <div id="tabTextures" class="tab-content" style="display: none;">
+          <div id="texturePreview" class="texture-preview">
+            <div style="color: var(--text-muted); font-size: 12px;">
+              Load a GR2 file to view textures
+            </div>
+          </div>
+        </div>
+
+        <div id="tabHex" class="tab-content" style="display: none;">
+          <div class="hex-viewer" id="hexViewer">
+            <div style="color: var(--text-muted); text-align: center; padding: 20px;">
+              Load a GR2 file to view hex data
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Panel - Timeline -->
+    <div class="panel bottom-panel">
+      <div class="timeline-container">
+        <div class="timeline-header">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span
+              style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary);">Animation
+              Timeline</span>
+            <select id="animationSelect"
+              style="background: var(--bg-primary); border: 1px solid var(--border); color: var(--text-primary); padding: 4px 8px; border-radius: 4px; font-size: 11px;">
+              <option value="">No Animation</option>
+            </select>
+          </div>
+
+          <div class="timeline-controls">
+            <button class="btn icon-only" id="playBtn" title="Play/Pause" disabled>▶</button>
+            <button class="btn icon-only" id="stopBtn" title="Stop" disabled>◼</button>
+            <span
+              style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-secondary); margin-left: 8px;">
+              <span id="currentFrame">0</span> / <span id="totalFrames">0</span>
+            </span>
+            <span
+              style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--accent-cyan); margin-left: 8px;">
+              <span id="currentTime">0.00</span>s
+            </span>
+          </div>
+        </div>
+
+        <div class="timeline-track" id="timelineTrack">
+          <div class="timeline-ruler" id="timelineRuler">
+            <div class="timeline-playhead" id="playhead" style="left: 0%;"></div>
+          </div>
+
+          <div id="animationTracks">
+            <div style="color: var(--text-muted); font-size: 12px; text-align: center; padding: 20px;">
+              Load a GR2 file with animations to see tracks
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Debug helpers -->
+  <script>
+    function dbg_assert(cond) {
+      if (!cond) {
+        console.log("Assertion failure");
+      }
+    }
+
+    function dbg_log(s) {
+      console.log(s);
+    }
+  </script>
+
+  <!-- Three.js -->
+  <script src="three.min.js"></script>
+
+  <!-- Granny2 Runtime Dependencies -->
+  <script src="const.js"></script>
+  <script src="main.js"></script>
+  <script src="memory.js"></script>
+  <script src="io.js"></script>
+  <script src="v86.js"></script>
+  <script src="fpu.js"></script>
+  <script src="granny2.js"></script>
+  <script src="granny2.subs.js"></script>
+  <script src="granny2.def.js"></script>
+  <script src="pe_env.js"></script>
+
+  <script>
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // GR2 VIEWER APPLICATION
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    const APP = {
+      gr2: null,           // Granny2 runtime instance
+      fileInfo: null,      // Current loaded file info
+      grannyFile: null,    // Current granny file pointer
+      scene: null,
+      camera: null,
+      renderer: null,
+      mesh3d: null,
+      clock: null,
+      rotating: true,
+      showGrid: true,
+      showAxes: true,
+      showMesh: true,
+      showWireframe: false,
+      showTexture: true,
+      grid: null,
+      axes: null,
+      textures: [],
+      rawBuffer: null,
+      lastFrameTime: 0,
+      frameCount: 0,
+      fps: 0
+    };
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // LOGGING
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    function log(msg, type = 'info') {
+      const logArea = document.getElementById('logArea');
+      const entry = document.createElement('div');
+      entry.className = 'log-entry ' + type;
+      const time = new Date().toLocaleTimeString();
+      entry.textContent = `[${time}] ${msg}`;
+      logArea.appendChild(entry);
+      logArea.scrollTop = logArea.scrollHeight;
+      console.log(`[${type.toUpperCase()}]`, msg);
+    }
+
+    function updateLoadingStatus(msg) {
+      document.getElementById('loadingStatus').textContent = msg;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // GRANNY2 INITIALIZATION
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    function initGranny2(binGranny2) {
+      log('Initializing Granny2 runtime...', 'info');
+      updateLoadingStatus('Creating Granny2 instance...');
+
+      try {
+        APP.gr2 = new Granny2(binGranny2);
+        log('Granny2 runtime created', 'success');
+
+        // Check version
+        const versionMatch = APP.gr2.VersionMatch(2, 1, 0, 5);
+        log(`Version match (2.1.0.5): ${versionMatch}`, versionMatch ? 'success' : 'info');
+
+        return true;
+      } catch (e) {
+        log('Failed to initialize Granny2: ' + e.message, 'error');
+        console.error(e);
+        return false;
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // FILE LOADING
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    async function loadGR2File(source) {
+      let buffer;
+      let fileName;
+
+      if (source instanceof File) {
+        fileName = source.name;
+        buffer = await source.arrayBuffer();
+        log(`Loading file: ${fileName} (${formatBytes(source.size)})`, 'info');
+      } else if (typeof source === 'string') {
+        fileName = source;
+        log(`Loading sample: ${fileName}`, 'info');
+
+        try {
+          const response = await fetch(source);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          buffer = await response.arrayBuffer();
+        } catch (e) {
+          log(`Failed to load ${fileName}: ${e.message}`, 'error');
+          return;
+        }
+      } else {
+        log('Invalid file source', 'error');
+        return;
+      }
+
+      document.getElementById('fileSize').textContent = formatBytes(buffer.byteLength);
+      document.getElementById('propFileName').textContent = fileName;
+      APP.rawBuffer = buffer;
+
+      parseGR2File(buffer, fileName);
+    }
+
+    function parseGR2File(buffer, fileName) {
+      log('Parsing GR2 file...', 'info');
+
+      try {
+        // Store raw buffer for hex view
+        updateHexView(buffer);
+
+        // Load into Granny2 runtime
+        APP.grannyFile = APP.gr2.ReadEntireFileFromMemory(buffer);
+
+        if (!APP.grannyFile) {
+          log('Failed to load GR2 file into memory', 'error');
+          updateStatus('error');
+          return;
+        }
+
+        log(`ReadEntireFileFromMemory: 0x${APP.grannyFile.toString(16).toUpperCase()}`, 'success');
+
+        // Get file info
+        const fileInfoPtr = APP.gr2.GetFileInfo(APP.grannyFile);
+
+        if (!fileInfoPtr) {
+          log('Failed to get file info', 'error');
+          updateStatus('error');
+          return;
+        }
+
+        log(`GetFileInfo: 0x${fileInfoPtr.toString(16).toUpperCase()}`, 'success');
+
+        // Parse file info structure
+        APP.fileInfo = Granny2.readStructure(
+          APP.gr2.runtime.cpu,
+          fileInfoPtr,
+          Granny2.structs.granny_file_info
+        );
+
+        log('Parsed granny_file_info structure', 'success');
+
+        // Update UI
+        updateFileTree(APP.fileInfo, fileName);
+        updateProperties(APP.fileInfo);
+        updateSkeletonTree(APP.fileInfo);
+        updateAnimationList(APP.fileInfo);
+
+        // Render 3D preview
+        renderModel();
+
+        updateStatus('ready');
+
+      } catch (e) {
+        log('Error parsing GR2: ' + e.message, 'error');
+        console.error(e);
+        updateStatus('error');
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // UI UPDATES
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    function updateStatus(status) {
+      const badge = document.getElementById('propStatus');
+      const classes = { ready: 'ready', loading: 'loading', error: 'error' };
+      const labels = { ready: 'Ready', loading: 'Loading', error: 'Error' };
+      badge.innerHTML = `<span class="state-badge ${classes[status]}">${labels[status]}</span>`;
+    }
+
+    function updateProperties(info) {
+      document.getElementById('propFormat').textContent = 'Granny2';
+      document.getElementById('propModels').textContent = info.ModelCount;
+      document.getElementById('propMeshes').textContent = info.MeshCount;
+      document.getElementById('propMaterials').textContent = info.MaterialCount;
+      document.getElementById('propTextures').textContent = info.TextureCount;
+      document.getElementById('propSkeletons').textContent = info.SkeletonCount;
+      document.getElementById('propAnimations').textContent = info.AnimationCount;
+    }
+
+    function updateFileTree(info, fileName) {
+      const container = document.getElementById('fileTree');
+      container.innerHTML = '';
+
+      const createNode = (name, icon, children = []) => {
+        const div = document.createElement('div');
+        div.innerHTML = `
+          <div class="tree-node">
+            <span class="tree-node-icon">${icon}</span>
+            <span>${name}</span>
+          </div>
+        `;
+
+        if (children.length > 0) {
+          const childContainer = document.createElement('div');
+          childContainer.className = 'tree-children';
+          children.forEach(child => childContainer.appendChild(child));
+          div.appendChild(childContainer);
+        }
+
+        return div;
+      };
+
+      // Root file
+      container.appendChild(createNode(fileName || 'GR2 File', '📁', [
+        createNode(`Models (${info.ModelCount})`, '🎭',
+          info.Models.map((m, i) => createNode(m.Name || `Model ${i}`, '📦'))
+        ),
+        createNode(`Meshes (${info.MeshCount})`, '🔷',
+          info.Meshes.map((m, i) => createNode(m.Name || `Mesh ${i}`, '△'))
+        ),
+        createNode(`Skeletons (${info.SkeletonCount})`, '💀',
+          info.Skeletons.map((s, i) => createNode(`${s.Name || 'Skeleton'} (${s.BoneCount} bones)`, '🦴'))
+        ),
+        createNode(`Textures (${info.TextureCount})`, '🖼️'),
+        createNode(`Materials (${info.MaterialCount})`, '🎨'),
+        createNode(`Animations (${info.AnimationCount})`, '🎬')
+      ]));
+    }
+
+    function updateSkeletonTree(info) {
+      const container = document.getElementById('skeletonTree');
+      container.innerHTML = '';
+
+      if (info.SkeletonCount === 0) {
+        container.innerHTML = '<div style="color: var(--text-muted); font-size: 12px;">No skeleton in this file</div>';
+        return;
+      }
+
+      const skeleton = info.Skeletons[0];
+      document.getElementById('statBones').textContent = skeleton.BoneCount;
+
+      // Validação de ponteiro - endereços > 0x10000000 provavelmente são inválidos
+      const MAX_VALID_ADDR = 0x10000000;
+
+      if (!skeleton.Bones || skeleton.Bones > MAX_VALID_ADDR) {
+        container.innerHTML = `<div style="color: var(--text-muted);">Bones pointer invalid: 0x${(skeleton.Bones || 0).toString(16)}</div>`;
+        log(`Invalid Bones pointer: 0x${(skeleton.Bones || 0).toString(16)}`, 'error');
+        return;
+      }
+
+      const maxBones = Math.min(skeleton.BoneCount, 30); // Limitar para evitar travamento
+
+      for (let i = 0; i < maxBones; i++) {
+        try {
+          const boneAddr = skeleton.Bones + (i * 148);
+
+
+          // Bones pode ser array contíguo OU array de ponteiros; tenta os dois.
+          let bonePtr = 0;
+          try {
+            const ptrCandidate = APP.gr2.runtime.get_dword_ptr(skeleton.Bones + (i * 4));
+            bonePtr = (ptrCandidate && ptrCandidate < MAX_VALID_ADDR) ? ptrCandidate : boneAddr;
+          } catch (e) {
+            bonePtr = boneAddr;
+          }
+          // Validar ponteiro antes de ler
+          if (!bonePtr || bonePtr > MAX_VALID_ADDR) {
+            log(`Bone ${i}: Invalid pointer 0x${(bonePtr || 0).toString(16)}`, 'error');
+            continue;
+          }
+
+          const bone = Granny2.readStructure(
+            APP.gr2.runtime.cpu,
+            bonePtr,
+            Granny2.structs.granny_bone
+          );
+
+          // Nome com fallback seguro
+          const boneName = (bone && bone.Name) ? bone.Name : `bone_${i}`;
+          const parentIdx = (bone && typeof bone.ParentIndex === 'number') ? bone.ParentIndex : -1;
+
+          const div = document.createElement('div');
+          div.className = 'bone-node';
+          div.innerHTML = `
+        <span class="bone-indicator"></span>
+        <span>${boneName}</span>
+        <span style="color: var(--text-muted); margin-left: auto; font-size: 10px;">P:${parentIdx}</span>
+      `;
+          container.appendChild(div);
+        } catch (e) {
+          log(`Error reading bone ${i}: ${e.message}`, 'error');
+          break; // Para no primeiro erro para evitar loop
+        }
+      }
+    }
+    function updateAnimationList(info) {
+      const select = document.getElementById('animationSelect');
+      select.innerHTML = '<option value="">No Animation</option>';
+
+      const tracksContainer = document.getElementById('animationTracks');
+
+      if (info.AnimationCount === 0) {
+        tracksContainer.innerHTML = '<div style="color: var(--text-muted); font-size: 12px; text-align: center; padding: 20px;">No animations in this file</div>';
+        return;
+      }
+
+      tracksContainer.innerHTML = '';
+
+      for (let i = 0; i < info.AnimationCount; i++) {
+        try {
+          const animPtr = APP.gr2.runtime.get_dword_ptr(info.Animations + i * 4);
+          if (animPtr) {
+            const anim = Granny2.readStructure(
+              APP.gr2.runtime.cpu,
+              animPtr,
+              Granny2.structs.granny_animation
+            );
+
+            // Add to dropdown
+            const option = document.createElement('option');
+            option.value = i;
+            option.textContent = `${anim.Name || 'Animation ' + i} (${anim.Duration.toFixed(2)}s)`;
+            select.appendChild(option);
+
+            // Add track visualization
+            const track = document.createElement('div');
+            track.className = 'animation-track';
+            track.innerHTML = `
+              <span class="animation-track-name">${anim.Name || 'Anim ' + i}</span>
+              <div class="animation-track-bar">
+                <div class="keyframe" style="left: 0%"></div>
+                <div class="keyframe" style="left: 25%"></div>
+                <div class="keyframe" style="left: 50%"></div>
+                <div class="keyframe" style="left: 75%"></div>
+                <div class="keyframe" style="left: 100%"></div>
+              </div>
+            `;
+            tracksContainer.appendChild(track);
+
+            log(`Animation ${i}: ${anim.Name}, ${anim.Duration.toFixed(2)}s`, 'info');
+          }
+        } catch (e) {
+          log(`Error reading animation ${i}`, 'error');
+        }
+      }
+    }
+
+    function updateHexView(buffer) {
+      const container = document.getElementById('hexViewer');
+      container.innerHTML = '';
+
+      const bytes = new Uint8Array(buffer.slice(0, 256)); // First 256 bytes
+
+      for (let i = 0; i < bytes.length; i += 16) {
+        const line = document.createElement('div');
+        line.className = 'hex-line';
+
+        const offset = i.toString(16).padStart(8, '0').toUpperCase();
+        const hexBytes = Array.from(bytes.slice(i, Math.min(i + 16, bytes.length)))
+          .map(b => b.toString(16).padStart(2, '0').toUpperCase())
+          .join(' ');
+        const ascii = Array.from(bytes.slice(i, Math.min(i + 16, bytes.length)))
+          .map(b => (b >= 32 && b <= 126) ? String.fromCharCode(b) : '.')
+          .join('');
+
+        line.innerHTML = `
+          <span class="hex-offset">${offset}</span>
+          <span class="hex-bytes">${hexBytes}</span>
+          <span class="hex-ascii">${ascii}</span>
+        `;
+
+        container.appendChild(line);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // 3D RENDERING
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    function initScene() {
+      const container = document.getElementById('canvas-container');
+
+      // Scene
+      APP.scene = new THREE.Scene();
+      APP.scene.background = new THREE.Color(0x0a0a0a);
+
+      // Camera
+      const aspect = container.clientWidth / container.clientHeight;
+      APP.camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 10000);
+      APP.camera.position.set(25, 35, 25);
+      APP.camera.lookAt(new THREE.Vector3(0, 10, 0));
+
+      // Renderer
+      APP.renderer = new THREE.WebGLRenderer({ antialias: true });
+      APP.renderer.setSize(container.clientWidth, container.clientHeight);
+      APP.renderer.setPixelRatio(window.devicePixelRatio);
+      container.appendChild(APP.renderer.domElement);
+
+      // Lights
+      APP.scene.add(new THREE.AmbientLight(0x606060, 0.6));
+
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      directionalLight.position.set(10, 30, 20);
+      APP.scene.add(directionalLight);
+
+      const fillLight = new THREE.DirectionalLight(0x6366f1, 0.3);
+      fillLight.position.set(-10, 0, -10);
+      APP.scene.add(fillLight);
+
+      // Grid
+      APP.grid = new THREE.GridHelper(100, 20, 0x2a2a2a, 0x1a1a1a);
+      APP.scene.add(APP.grid);
+
+      // Axes
+      APP.axes = new THREE.AxesHelper(50);
+      APP.scene.add(APP.axes);
+
+      // Mouse controls
+      setupMouseControls();
+
+      // Handle resize
+      window.addEventListener('resize', onResize);
+
+      // Start animation loop
+      APP.clock = new THREE.Clock();
+      animate();
+    }
+
+    function setupMouseControls() {
+      let isMouseDown = false;
+      let prevMouseX = 0;
+      let prevMouseY = 0;
+      let theta = Math.PI / 4;
+      let phi = Math.PI / 4;
+      let radius = 50;
+      let target = new THREE.Vector3(0, 10, 0);
+
+      const updateCamera = () => {
+        APP.camera.position.x = target.x + radius * Math.sin(theta) * Math.cos(phi);
+        APP.camera.position.y = target.y + radius * Math.sin(phi);
+        APP.camera.position.z = target.z + radius * Math.cos(theta) * Math.cos(phi);
+        APP.camera.lookAt(target);
+      };
+
+      APP.renderer.domElement.addEventListener('mousedown', (e) => {
+        isMouseDown = true;
+        prevMouseX = e.clientX;
+        prevMouseY = e.clientY;
+      });
+
+      window.addEventListener('mouseup', () => {
+        isMouseDown = false;
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!isMouseDown) return;
+
+        const deltaX = e.clientX - prevMouseX;
+        const deltaY = e.clientY - prevMouseY;
+
+        theta -= deltaX * 0.01;
+        phi += deltaY * 0.01;
+        phi = Math.max(0.1, Math.min(Math.PI / 2 - 0.1, phi));
+
+        updateCamera();
+
+        prevMouseX = e.clientX;
+        prevMouseY = e.clientY;
+      });
+
+      APP.renderer.domElement.addEventListener('wheel', (e) => {
+        radius += e.deltaY * 0.1;
+        radius = Math.max(5, Math.min(200, radius));
+        updateCamera();
+        e.preventDefault();
+      });
+
+      APP.resetCamera = () => {
+        theta = Math.PI / 4;
+        phi = Math.PI / 4;
+        radius = 50;
+        updateCamera();
+      };
+
+      updateCamera();
+    }
+
+    function renderModel() {
+      if (!APP.fileInfo || APP.fileInfo.MeshCount === 0) {
+        log('No meshes to render', 'info');
+        return;
+      }
+
+      // Clear existing model
+      if (APP.mesh3d) {
+        APP.scene.remove(APP.mesh3d);
+      }
+
+      log('Rendering model...', 'info');
+      const info = APP.fileInfo;
+
+      // ─────────────────────────────────────────────────────────────
+      // Load textures (store ptr + THREE texture so we can map materials)
+      // ─────────────────────────────────────────────────────────────
+      APP.textures = [];
+      const textureContainer = document.getElementById('texturePreview');
+      textureContainer.innerHTML = '';
+
+      for (let i = 0; i < info.TextureCount; i++) {
+        try {
+          const texPtr = APP.gr2.runtime.get_dword_ptr(info.Textures + i * 4);
+          const tex = Granny2.readStructure(APP.gr2.runtime.cpu, texPtr, Granny2.structs.granny_texture);
+          const texData = APP.gr2.CopyTextureImage(texPtr);
+
+          const canvas = document.createElement('canvas');
+          canvas.width = tex.Width;
+          canvas.height = tex.Height;
+
+          const ctx = canvas.getContext('2d');
+          const imgd = ctx.getImageData(0, 0, tex.Width, tex.Height);
+          imgd.data.set(texData);
+          ctx.putImageData(imgd, 0, 0);
+
+          const threeTex = new THREE.CanvasTexture(canvas);
+          threeTex.needsUpdate = true;
+
+          const hasAlpha = (APP.gr2.TextureHasAlpha) ? APP.gr2.TextureHasAlpha(texPtr) : false;
+
+          APP.textures.push({
+            index: i,
+            ptr: texPtr,          // granny_texture*
+            info: tex,
+            canvas,
+            threeTexture: threeTex,
+            hasAlpha
+          });
+
+          textureContainer.appendChild(canvas);
+          log(`Texture ${i}: ${tex.Width}x${tex.Height}`, 'success');
+        } catch (e) {
+          log(`Error loading texture ${i}: ${e.message}`, 'error');
+        }
+      }
+
+      // ─────────────────────────────────────────────────────────────
+      // Build material -> textureIndex map (same idea as texture-debug)
+      // ─────────────────────────────────────────────────────────────
+      const materialToTexture = new Map(); // matPtr -> textureIndex
+
+      if (info.Materials && info.MaterialCount > 0) {
+        for (let m = 0; m < info.MaterialCount; m++) {
+          const matPtr = APP.gr2.runtime.get_dword_ptr(info.Materials + 4 * m);
+          try {
+            const matInfo = Granny2.readStructure(APP.gr2.runtime.cpu, matPtr, Granny2.structs.granny_material);
+
+            // Direct link: matInfo.Texture points to a granny_texture*
+            if (matInfo.Texture) {
+              const idx = APP.textures.findIndex(t => t.ptr === matInfo.Texture);
+              if (idx >= 0) materialToTexture.set(matPtr, idx);
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
+
+        // Optional: resolve via Maps (if present). This mirrors texture-debug behavior.
+        for (let m = 0; m < info.MaterialCount; m++) {
+          const matPtr = APP.gr2.runtime.get_dword_ptr(info.Materials + 4 * m);
+          if (materialToTexture.has(matPtr)) continue;
+
+          try {
+            const matInfo = Granny2.readStructure(APP.gr2.runtime.cpu, matPtr, Granny2.structs.granny_material);
+            if (matInfo.MapCount > 0 && matInfo.Maps) {
+              for (let mapIdx = 0; mapIdx < matInfo.MapCount; mapIdx++) {
+                // granny_material_map = 8 bytes: char* Usage + void* Material
+                const mapPtr = matInfo.Maps + mapIdx * 8;
+                const refMatPtr = APP.gr2.runtime.get_dword_ptr(mapPtr + 4);
+                if (materialToTexture.has(refMatPtr)) {
+                  materialToTexture.set(matPtr, materialToTexture.get(refMatPtr));
+                  break;
+                }
+              }
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
+      }
+
+      // ─────────────────────────────────────────────────────────────
+      // Render each mesh separately (fixes index offset + per-mesh textures)
+      // ─────────────────────────────────────────────────────────────
+      const group = new THREE.Group();
+      let totalVertices = 0;
+      let totalTriangles = 0;
+
+      for (let i = 0; i < info.MeshCount; i++) {
+        try {
+          const meshInfo = info.Meshes[i];
+
+          const vertices = APP.gr2.CopyMeshVertices(meshInfo._ptr);
+          const meshIndices = APP.gr2.CopyMeshIndices(meshInfo._ptr);
+
+          const built = createGeometry(vertices, meshIndices);
+          if (!built) continue;
+
+          totalVertices += built.vertexCount;
+          totalTriangles += built.triangleCount;
+
+          // Resolve texture for this mesh via MaterialBindings
+          let texIndex = -1;
+          if (meshInfo.MaterialBindings && meshInfo.MaterialsBindingCount > 0) {
+            for (let mb = 0; mb < meshInfo.MaterialsBindingCount; mb++) {
+              const matPtr = APP.gr2.runtime.get_dword_ptr(meshInfo.MaterialBindings + 4 * mb);
+              if (materialToTexture.has(matPtr)) {
+                texIndex = materialToTexture.get(matPtr);
+                break;
+              }
+            }
+          }
+          if (texIndex < 0 && APP.textures.length > 0) texIndex = 0;
+
+          let material;
+          if (texIndex >= 0 && APP.textures[texIndex]) {
+            material = new THREE.MeshLambertMaterial({
+              map: APP.textures[texIndex].threeTexture,
+              side: THREE.DoubleSide,
+              wireframe: APP.showWireframe === true,
+              transparent: !!APP.textures[texIndex].hasAlpha,
+              alphaTest: APP.textures[texIndex].hasAlpha ? 0.1 : 0
+            });
+          } else {
+            material = new THREE.MeshLambertMaterial({
+              color: 0x888888,
+              side: THREE.DoubleSide,
+              wireframe: APP.showWireframe === true
+            });
+          }
+
+          const mesh = new THREE.Mesh(built.geometry, material);
+          mesh.name = meshInfo.Name || `Mesh_${i}`;
+          mesh.userData._texIndex = texIndex;
+          mesh.userData._baseMap = material.map || null;
+
+          group.add(mesh);
+          log(`Mesh ${i}: ${built.vertexCount} vertices`, 'info');
+        } catch (e) {
+          log(`Error loading mesh ${i}: ${e.message}`, 'error');
+        }
+      }
+
+      // Apply coordinate system transform (GR2 -> Three.js)
+      group.applyMatrix4(new THREE.Matrix4().set(
+        1, 0, 0, 0,
+        0, 0, 1, 0,
+        0, 1, 0, 0,
+        0, 0, 0, 1
+      ));
+
+      APP.mesh3d = group;
+      APP.mesh3d.visible = APP.showMesh !== false;
+      APP.scene.add(APP.mesh3d);
+
+      document.getElementById('statVertices').textContent = totalVertices.toLocaleString();
+      document.getElementById('statTriangles').textContent = totalTriangles.toLocaleString();
+    }
+
+
+    function createGeometry(vertices, meshIndices) {
+      if (!vertices || vertices.length === 0) return null;
+
+      const geometry = new THREE.BufferGeometry();
+
+      const PNT332 = new Float32Array(vertices.buffer);
+      const vertexCount = Math.floor(PNT332.length / 8);
+
+      const positions = new Float32Array(vertexCount * 3);
+      const normals = new Float32Array(vertexCount * 3);
+      const uvs = new Float32Array(vertexCount * 2);
+
+      for (let i = 0; i < vertexCount; i++) {
+        const src = i * 8;
+
+        positions[i * 3 + 0] = PNT332[src + 0];
+        positions[i * 3 + 1] = PNT332[src + 1];
+        positions[i * 3 + 2] = PNT332[src + 2];
+
+        normals[i * 3 + 0] = PNT332[src + 3];
+        normals[i * 3 + 1] = PNT332[src + 4];
+        normals[i * 3 + 2] = PNT332[src + 5];
+
+        // Flip V
+        uvs[i * 2 + 0] = PNT332[src + 6];
+        uvs[i * 2 + 1] = 1.0 - PNT332[src + 7];
+      }
+
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+      geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+
+      // Indices
+      if (meshIndices && meshIndices.buffer) {
+        const idx = new Uint16Array(meshIndices.buffer);
+        geometry.setIndex(new THREE.BufferAttribute(idx, 1));
+      }
+
+      geometry.computeBoundingSphere();
+
+      return {
+        geometry,
+        vertexCount,
+        triangleCount: geometry.index ? (geometry.index.count / 3) : 0
+      };
+    }
+
+
+    function onResize() {
+      const container = document.getElementById('canvas-container');
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+
+      APP.camera.aspect = width / height;
+      APP.camera.updateProjectionMatrix();
+      APP.renderer.setSize(width, height);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const delta = APP.clock.getDelta();
+
+      if (APP.rotating && APP.mesh3d) {
+        APP.mesh3d.rotation.y += delta * 0.5;
+      }
+
+      // FPS counter
+      APP.frameCount++;
+      const now = performance.now();
+      if (now - APP.lastFrameTime >= 1000) {
+        APP.fps = APP.frameCount;
+        APP.frameCount = 0;
+        APP.lastFrameTime = now;
+        document.getElementById('statFPS').textContent = APP.fps;
+      }
+
+      if (APP.renderer && APP.scene && APP.camera) {
+        APP.renderer.render(APP.scene, APP.camera);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // UTILITIES
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    function formatBytes(bytes) {
+      if (bytes === 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    function takeScreenshot() {
+      const link = document.createElement('a');
+      link.download = 'gr2-screenshot.png';
+      link.href = APP.renderer.domElement.toDataURL('image/png');
+      link.click();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // EVENT HANDLERS
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // Initialize 3D scene
+      initScene();
+
+      // Load Granny2 runtime
+      updateLoadingStatus('Loading granny2.bin...');
+
+      fetch('granny2.bin')
+        .then(response => {
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          return response.arrayBuffer();
+        })
+        .then(buffer => {
+          updateLoadingStatus('Initializing Granny2 runtime...');
+
+          if (initGranny2(buffer)) {
+            // Hide loading overlay
+            document.getElementById('loadingOverlay').classList.add('hidden');
+
+            // Enable UI elements
+            document.getElementById('loadFileBtn').disabled = false;
+            document.getElementById('sampleSelect').disabled = false;
+
+            updateStatus('ready');
+            log('Granny2 runtime ready', 'success');
+          } else {
+            updateLoadingStatus('Failed to initialize Granny2');
+          }
+        })
+        .catch(e => {
+          updateLoadingStatus('Failed to load granny2.bin: ' + e.message);
+          log('Failed to load granny2.bin: ' + e.message, 'error');
+        });
+
+      // File input handlers
+      const dropZone = document.getElementById('dropZone');
+      const fileInput = document.getElementById('fileInput');
+      const loadFileBtn = document.getElementById('loadFileBtn');
+      const sampleSelect = document.getElementById('sampleSelect');
+
+      dropZone.addEventListener('click', () => fileInput.click());
+      loadFileBtn.addEventListener('click', () => fileInput.click());
+
+      dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+      });
+
+      dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('dragover');
+      });
+
+      dropZone.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        const file = e.dataTransfer.files[0];
+        if (file && file.name.toLowerCase().endsWith('.gr2')) {
+          await loadGR2File(file);
+        } else {
+          log('Please drop a .gr2 file', 'error');
+        }
+      });
+
+      fileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (file) await loadGR2File(file);
+      });
+
+      sampleSelect.addEventListener('change', async (e) => {
+        if (e.target.value) {
+          await loadGR2File(e.target.value);
+        }
+      });
+
+      // Toggle buttons
+      document.getElementById('toggleMesh').addEventListener('click', function () {
+        this.classList.toggle('active');
+        APP.showMesh = this.classList.contains('active');
+        if (APP.mesh3d) APP.mesh3d.visible = APP.showMesh;
+      });
+
+      document.getElementById('toggleWireframe').addEventListener('click', function () {
+        this.classList.toggle('active');
+        APP.showWireframe = this.classList.contains('active');
+        if (APP.mesh3d) {
+          if (APP.mesh3d.material) {
+            APP.mesh3d.material.wireframe = APP.showWireframe;
+          } else if (APP.mesh3d.children) {
+            APP.mesh3d.children.forEach(ch => ch.material && (ch.material.wireframe = APP.showWireframe));
+          }
+        }
+      });
+
+      document.getElementById('toggleSkeleton').addEventListener('click', function () {
+        this.classList.toggle('active');
+      });
+
+      document.getElementById('toggleTexture').addEventListener('click', function () {
+        this.classList.toggle('active');
+        APP.showTexture = this.classList.contains('active');
+
+        if (APP.mesh3d && APP.textures.length > 0) {
+          const enable = APP.showTexture;
+          const applyToMaterial = (mat, baseMap) => {
+            if (!mat) return;
+            mat.map = enable ? (baseMap || mat.map) : null;
+            mat.needsUpdate = true;
+          };
+
+          if (APP.mesh3d.material) {
+            applyToMaterial(APP.mesh3d.material, APP.mesh3d.userData?._baseMap);
+          } else if (APP.mesh3d.children) {
+            APP.mesh3d.children.forEach(ch => {
+              if (ch.material) applyToMaterial(ch.material, ch.userData?._baseMap);
+            });
+          }
+        }
+      });
+
+      // Viewport controls
+      document.getElementById('resetCamera').addEventListener('click', () => APP.resetCamera && APP.resetCamera());
+
+      document.getElementById('toggleGrid').addEventListener('click', () => {
+        APP.showGrid = !APP.showGrid;
+        if (APP.grid) APP.grid.visible = APP.showGrid;
+      });
+
+      document.getElementById('toggleAxes').addEventListener('click', () => {
+        APP.showAxes = !APP.showAxes;
+        if (APP.axes) APP.axes.visible = APP.showAxes;
+      });
+
+      document.getElementById('screenshot').addEventListener('click', takeScreenshot);
+
+      // Tabs
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', function () {
+          document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+          document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+
+          this.classList.add('active');
+          const tabId = 'tab' + this.dataset.tab.charAt(0).toUpperCase() + this.dataset.tab.slice(1);
+          const tabContent = document.getElementById(tabId);
+          if (tabContent) tabContent.style.display = 'block';
+        });
+      });
+
+      // Animation controls (basic)
+      document.getElementById('animationSelect').addEventListener('change', (e) => {
+        if (e.target.value) {
+          document.getElementById('playBtn').disabled = false;
+          document.getElementById('stopBtn').disabled = false;
+        }
+      });
+    });
+  </script>
+</body>
+
+</html>
