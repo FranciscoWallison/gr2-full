@@ -1,5 +1,5 @@
 /** @define {boolean} */            
-var DEBUG = true;
+var DEBUG = false;
 
 
 var 
@@ -32,9 +32,9 @@ var
 
 
     //LOG_LEVEL = LOG_ALL & ~LOG_DMA & ~LOG_DISK & ~LOG_PIT;
-    LOG_LEVEL = LOG_CPU | LOG_OTHER | LOG_IO;
+    //LOG_LEVEL = LOG_CPU | LOG_OTHER | LOG_IO;
     //LOG_LEVEL = LOG_CPU | LOG_OTHER | LOG_DISK | LOG_IO | LOG_CD;
-    //LOG_LEVEL = 0;
+    LOG_LEVEL = 0;
 
 
 var

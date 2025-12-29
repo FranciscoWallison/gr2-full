@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>GR2 to GLB Converter</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; min-height: 100vh; color: #e4e4e4; }
+    .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+    header { text-align: center; padding: 20px 0; }
+    h1 { font-size: 2em; color: #4a9eff; }
+    .main { display: grid; grid-template-columns: 320px 1fr; gap: 20px; }
+    .sidebar { background: rgba(0,0,0,0.3); border-radius: 8px; padding: 15px; }
+    .preview { background: rgba(0,0,0,0.3); border-radius: 8px; min-height: 500px; position: relative; }
+    #render-container { width: 100%; height: 500px; }
+    .section { margin-bottom: 20px; }
+    .section-title { font-size: 0.85em; color: #4a9eff; margin-bottom: 10px; text-transform: uppercase; }
+    .drop-zone { border: 2px dashed #4a9eff; border-radius: 8px; padding: 30px; text-align: center; cursor: pointer; }
+    .drop-zone:hover { background: rgba(74,158,255,0.1); }
+    #file-input { display: none; }
+    .btn { width: 100%; padding: 10px; border: none; border-radius: 6px; cursor: pointer; margin-bottom: 8px; }
+    .btn-primary { background: #4a9eff; color: white; }
+    .btn:disabled { opacity: 0.5; }
+    .info-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 0.85em; }
+    .info-label { color: #888; }
+    .info-value { color: #4a9eff; }
+    .log { max-height: 150px; overflow-y: auto; background: #0a0a1a; border-radius: 4px; padding: 8px; font-family: monospace; font-size: 0.75em; }
+    .log-info { color: #4a9eff; }
+    .log-success { color: #22c55e; }
+    .log-error { color: #ef4444; }
+    #loading { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .spinner { width: 40px; height: 40px; border: 3px solid #333; border-top-color: #4a9eff; border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .texture-preview { display: flex; flex-wrap: wrap; gap: 5px; }
+    .texture-preview canvas { max-width: 60px; max-height: 60px; border: 1px solid #333; }
+    .deps-error { background: rgba(239,68,68,0.1); border: 1px solid #ef4444; border-radius: 6px; padding: 10px; margin-bottom: 15px; font-size: 0.85em; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header><h1>GR2 → GLB Converter</h1></header>
+    <div class="main">
+      <div class="sidebar">
+        <div id="deps-error" class="deps-error" style="display:none"></div>
+        <div class="section">
+          <div class="section-title">Load GR2</div>
+          <div class="drop-zone" id="drop-zone">📦 Drop .gr2 file here<input type="file" id="file-input" accept=".gr2"></div>
+        </div>
+        <div class="section" id="info-section" style="display:none">
+          <div class="section-title">File Info</div>
+          <div class="info-row"><span class="info-label">File</span><span class="info-value" id="i-file">-</span></div>
+          <div class="info-row"><span class="info-label">Meshes</span><span class="info-value" id="i-mesh">-</span></div>
+          <div class="info-row"><span class="info-label">Vertices</span><span class="info-value" id="i-vert">-</span></div>
+          <div class="info-row"><span class="info-label">Textures</span><span class="info-value" id="i-tex">-</span></div>
+          <div class="info-row"><span class="info-label">Bones</span><span class="info-value" id="i-bone">-</span></div>
+        </div>
+        <div class="section" id="tex-section" style="display:none">
+          <div class="section-title">Textures</div>
+          <div class="texture-preview" id="tex-preview"></div>
+        </div>
+        <div class="section" id="action-section" style="display:none">
+          <button class="btn btn-primary" id="btn-convert" disabled>Convert to GLB</button>
+          <button class="btn" id="btn-download" disabled>Download GLB</button>
+        </div>
+        <div class="section">
+          <div class="section-title">Log</div>
+          <div class="log" id="log"></div>
+        </div>
+      </div>
+      <div class="preview">
+        <div id="loading"><div class="spinner"></div><p id="load-text" style="margin-top:10px;color:#888">Loading...</p></div>
+        <div id="render-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- REQUIRED: Copy these from gr2-web folder -->
+  <script src="three.min.js"></script>
+  <script src="const.js"></script>
+  <script src="main.js"></script>
+  <script src="memory.js"></script>
+  <script src="io.js"></script>
+  <script src="fpu.js"></script>
+  <script src="v86.js"></script>
+  <script src="granny2.js"></script>
+  <script src="granny2.subs.js"></script>
+  <script src="granny2.def.js"></script>
+  <script src="pe_env.js"></script>
+
+  <script>
+    let gr2=null,gr2Ready=false,scene,camera,renderer,model=null,data=null,glbBlob=null;
+    const log=(m,t='info')=>{const e=document.createElement('div');e.className='log-'+t;e.textContent=m;document.getElementById('log').appendChild(e);document.getElementById('log').scrollTop=9999;console.log(m);};
+    const setLoad=t=>document.getElementById('load-text').textContent=t;
+
+    function checkDeps(){
+      const deps={THREE:typeof THREE!=='undefined',v86:typeof v86!=='undefined',FPU:typeof FPU!=='undefined',Granny2:typeof Granny2!=='undefined'};
+      const missing=Object.entries(deps).filter(([,v])=>!v).map(([k])=>k);
+      if(missing.length){
+        document.getElementById('deps-error').style.display='block';
+        document.getElementById('deps-error').innerHTML='<b>Missing:</b> '+missing.join(', ')+'<br><small>Copy fpu.js and other files from gr2-web folder</small>';
+        return false;
+      }
+      return true;
+    }
+
+    function initScene(){
+      const c=document.getElementById('render-container');
+      scene=new THREE.Scene();scene.background=new THREE.Color(0x1a1a2e);
+      camera=new THREE.PerspectiveCamera(45,c.clientWidth/c.clientHeight,0.1,10000);
+      camera.position.set(50,50,50);camera.lookAt(0,10,0);
+      renderer=new THREE.WebGLRenderer({antialias:true});
+      renderer.setSize(c.clientWidth,c.clientHeight);
+      c.appendChild(renderer.domElement);
+      scene.add(new THREE.AmbientLight(0x404040,1.5));
+      const d=new THREE.DirectionalLight(0xffffff,1);d.position.set(50,100,50);scene.add(d);
+      scene.add(new THREE.GridHelper(100,20,0x444444,0x222222));
+      let drag=false,px=0,py=0,dist=80,th=Math.PI/4,ph=Math.PI/4;
+      const upCam=()=>{camera.position.set(dist*Math.sin(ph)*Math.cos(th),dist*Math.cos(ph),dist*Math.sin(ph)*Math.sin(th));camera.lookAt(0,10,0);};
+      renderer.domElement.onmousedown=e=>{drag=true;px=e.clientX;py=e.clientY;};
+      window.onmouseup=()=>drag=false;
+      renderer.domElement.onmousemove=e=>{if(!drag)return;th+=(e.clientX-px)*0.01;ph=Math.max(0.1,Math.min(3,ph+(e.clientY-py)*0.01));upCam();px=e.clientX;py=e.clientY;};
+      renderer.domElement.onwheel=e=>{e.preventDefault();dist=Math.max(10,Math.min(500,dist+e.deltaY*0.1));upCam();};
+      upCam();
+      (function anim(){requestAnimationFrame(anim);renderer.render(scene,camera);})();
+    }
+
+    async function initGr2(){
+      log('Loading Granny2...');setLoad('Loading granny2.bin...');
+      try{
+        const r=await fetch('granny2.bin');
+        if(!r.ok)throw new Error('granny2.bin not found');
+        const bin=await r.arrayBuffer();
+        log('Loaded granny2.bin ('+Math.round(bin.byteLength/1024)+'KB)');
+        setLoad('Initializing emulator...');
+        // Granny2 constructor expects the binary directly
+        gr2=new Granny2(bin);
+        gr2Ready=true;
+        log('Granny2 ready','success');
+        document.getElementById('loading').style.display='none';
+      }catch(e){
+        log('Init failed: '+e.message,'error');
+        setLoad('Error: '+e.message);
+        console.error(e);
+      }
+    }
+
+    async function loadFile(buf,name){
+      if(!gr2Ready){log('Not ready','error');return;}
+      log('Loading '+name);
+      try{
+        const gf=gr2.ReadEntireFileFromMemory(buf);
+        if(!gf)throw new Error('Parse failed');
+        const fip=gr2.GetFileInfo(gf);
+        const fi=Granny2.readStructure(gr2.runtime.cpu,fip,Granny2.structs.granny_file_info);
+        log('Models:'+fi.ModelCount+' Meshes:'+fi.MeshCount+' Tex:'+fi.TextureCount);
+        const tex=extractTex(fi);
+        const mesh=extractMesh(fi,tex);
+        
+        // Handle skeleton - skip if we can't read bones properly
+        let skel=null;
+        if(fi.Skeletons&&fi.SkeletonCount){
+          try{
+            const s0=fi.Skeletons[0];
+            log('Skeleton: '+s0.Name+' ('+s0.BoneCount+' bones declared)');
+            
+            // Check if Bones is already an array (parsed by readStructure)
+            if(Array.isArray(s0.Bones)&&s0.Bones.length>0){
+              skel={
+                name:s0.Name||'Skeleton',
+                bones:s0.Bones.map((b,i)=>({
+                  name:b.Name||'Bone_'+i,
+                  parentIndex:b.ParentIndex,
+                  localTransform:b.LocalTransform,
+                  inverseWorld4x4:b.InverseWorld4x4
+                }))
+              };
+              log('Skeleton loaded: '+skel.bones.length+' bones');
+            }else{
+              // Bones is a pointer - skeleton info only, no bone data
+              log('Skeleton exists but bones not parsed (pointer: 0x'+(s0.Bones||0).toString(16)+')');
+              skel={name:s0.Name||'Skeleton',bones:[],boneCount:s0.BoneCount};
+            }
+          }catch(skelErr){
+            log('Skeleton error: '+skelErr.message,'error');
+          }
+        }
+        
+        data={filename:name.replace('.gr2',''),fi,tex,mesh,skel,verts:mesh.reduce((s,m)=>s+m.vc,0)};
+        document.getElementById('i-file').textContent=data.filename;
+        document.getElementById('i-mesh').textContent=mesh.length;
+        document.getElementById('i-vert').textContent=data.verts;
+        document.getElementById('i-tex').textContent=tex.length;
+        document.getElementById('i-bone').textContent=skel?(skel.bones.length||skel.boneCount||0):0;
+        document.getElementById('info-section').style.display='block';
+        document.getElementById('action-section').style.display='block';
+        document.getElementById('btn-convert').disabled=false;
+        buildPreview();
+        log('Loaded','success');
+      }catch(e){log('Error: '+e.message,'error');console.error(e);}
+    }
+
+    function extractTex(fi){
+      const tex=[];const pr=document.getElementById('tex-preview');pr.innerHTML='';
+      for(let i=0;i<fi.TextureCount;i++){
+        const ptr=gr2.runtime.get_dword_ptr(fi.Textures+4*i);
+        const ti=Granny2.readStructure(gr2.runtime.cpu,ptr,Granny2.structs.granny_texture);
+        const px=gr2.CopyTextureImage(ptr);
+        const cv=document.createElement('canvas');cv.width=ti.Width;cv.height=ti.Height;
+        const ctx=cv.getContext('2d');const id=ctx.createImageData(ti.Width,ti.Height);id.data.set(px);ctx.putImageData(id,0,0);
+        const pv=cv.cloneNode();pv.getContext('2d').drawImage(cv,0,0);pr.appendChild(pv);
+        const t3=new THREE.CanvasTexture(cv);t3.flipY=false;t3.needsUpdate=true;
+        tex.push({ptr,info:ti,canvas:cv,tex:t3,dataURL:cv.toDataURL('image/png')});
+      }
+      if(tex.length)document.getElementById('tex-section').style.display='block';
+      return tex;
+    }
+
+    
+    function extractMesh(fi,tex){
+      const mesh=[];
+      // Robust material->texture resolve (direct + via Maps), same idea as texture-debug.html
+      const materialsMap=new Map();   // matPtr -> matInfo
+      const matToTex=new Map();       // matPtr -> textureIndex
+
+      if(fi.Materials&&fi.MaterialCount){
+        // Pass 1: read materials, try direct Texture pointer
+        for(let m=0;m<fi.MaterialCount;m++){
+          const matPtr=gr2.runtime.get_dword_ptr(fi.Materials+4*m);
+          try{
+            const mi=Granny2.readStructure(gr2.runtime.cpu,matPtr,Granny2.structs.granny_material);
+            materialsMap.set(matPtr,mi);
+            if(mi.Texture){
+              for(let t=0;t<tex.length;t++){
+                if(tex[t].ptr===mi.Texture){matToTex.set(matPtr,t);break;}
+              }
+            }
+          }catch(e){}
+        }
+
+        // Pass 2: resolve materials that don't have a direct Texture but reference another material via Maps
+        for(const [matPtr,mi] of materialsMap){
+          if(matToTex.has(matPtr))continue;
+          if(mi.MapCount>0&&mi.Maps){
+            for(let mapIdx=0;mapIdx<mi.MapCount;mapIdx++){
+              // granny_material_map is 8 bytes: char* Usage (4) + void* Material (4)
+              const mapPtr=mi.Maps+mapIdx*8;
+              const refMatPtr=gr2.runtime.get_dword_ptr(mapPtr+4);
+              if(matToTex.has(refMatPtr)){matToTex.set(matPtr,matToTex.get(refMatPtr));break;}
+            }
+          }
+        }
+      }
+
+      const getTexIndexForMaterial=(matPtr)=>matToTex.has(matPtr)?matToTex.get(matPtr):-1;
+
+      for(let i=0;i<fi.MeshCount;i++){
+        const ms=fi.Meshes[i];
+        try{
+          const vc=gr2.GetMeshVertexCount(ms._ptr);const ic=gr2.GetMeshIndexCount(ms._ptr);
+          if(!vc)continue;
+          const vb=gr2.CopyMeshVertices(ms._ptr);const ib=gr2.CopyMeshIndices(ms._ptr);
+
+          let ti=-1;
+          if(ms.MaterialBindings&&ms.MaterialsBindingCount){
+            for(let mb=0;mb<ms.MaterialsBindingCount;mb++){
+              const matPtr=gr2.runtime.get_dword_ptr(ms.MaterialBindings+4*mb);
+              const found=getTexIndexForMaterial(matPtr);
+              if(found>=0){ti=found;break;}
+            }
+          }
+          if(ti<0&&tex.length)ti=0;
+
+          const f=new Float32Array(vb.buffer);const pos=[],nrm=[],uv=[];
+          for(let v=0;v<vc;v++){const o=v*8;pos.push(f[o],f[o+1],f[o+2]);nrm.push(f[o+3],f[o+4],f[o+5]);uv.push(f[o+6],f[o+7]);}
+          mesh.push({name:ms.Name||'Mesh_'+i,vc,ic,pos:new Float32Array(pos),nrm:new Float32Array(nrm),uv:new Float32Array(uv),idx:new Uint16Array(ib.buffer),ti});
+        }catch(e){log('Mesh '+i+' failed: '+e.message,'error');}
+      }
+      return mesh;
+    }
+
+    function buildPreview(){
+      if(model){scene.remove(model);model.traverse(c=>{if(c.geometry)c.geometry.dispose();if(c.material){if(c.material.map)c.material.map.dispose();c.material.dispose();}});}
+      model=new THREE.Group();
+      data.mesh.forEach(m=>{
+        const g=new THREE.BufferGeometry();
+        g.setAttribute('position',new THREE.BufferAttribute(m.pos,3));
+        g.setAttribute('normal',new THREE.BufferAttribute(m.nrm,3));
+        const uvf=new Float32Array(m.uv.length);for(let i=0;i<m.uv.length;i+=2){uvf[i]=m.uv[i];uvf[i+1]=m.uv[i+1];}
+        g.setAttribute('uv',new THREE.BufferAttribute(uvf,2));
+        g.setIndex(new THREE.BufferAttribute(m.idx,1));
+        const mat=m.ti>=0&&data.tex[m.ti]?new THREE.MeshStandardMaterial({map:data.tex[m.ti].tex,side:THREE.DoubleSide}):new THREE.MeshStandardMaterial({color:0x888888,side:THREE.DoubleSide});
+        model.add(new THREE.Mesh(g,mat));
+      });
+      const b=new THREE.Box3().setFromObject(model);const c=b.getCenter(new THREE.Vector3());
+      model.position.sub(c);model.position.y+=b.max.y-b.min.y;
+      scene.add(model);
+    }
+
+    function convert(){
+      if(!data)return;log('Converting...');
+      const gltf={asset:{version:'2.0',generator:'GR2-GLB'},scene:0,scenes:[{nodes:[0]}],nodes:[],meshes:[],accessors:[],bufferViews:[],buffers:[],materials:[],images:[],textures:[],samplers:[]};
+      const bd=[];let bo=0;
+      const addBV=(d,t)=>{const v={buffer:0,byteOffset:bo,byteLength:d.byteLength};if(t)v.target=t;gltf.bufferViews.push(v);bd.push(d);const p=Math.ceil(d.byteLength/4)*4;if(p>d.byteLength)bd.push(new Uint8Array(p-d.byteLength));bo+=p;return gltf.bufferViews.length-1;};
+      const addA=(bv,ct,n,tp,mn,mx)=>{const a={bufferView:bv,componentType:ct,count:n,type:tp};if(mn)a.min=mn;if(mx)a.max=mx;gltf.accessors.push(a);return gltf.accessors.length-1;};
+      if(data.tex.length){gltf.samplers.push({magFilter:9729,minFilter:9987,wrapS:10497,wrapT:10497});data.tex.forEach((t,i)=>{const b64=t.dataURL.split(',')[1];const bin=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));gltf.images.push({bufferView:addBV(bin),mimeType:'image/png'});gltf.textures.push({sampler:0,source:i});});}
+      data.mesh.forEach((m,i)=>{const mt={name:'Mat_'+i,pbrMetallicRoughness:{baseColorFactor:[0.8,0.8,0.8,1],metallicFactor:0.1,roughnessFactor:0.8},doubleSided:true};if(m.ti>=0&&m.ti<data.tex.length)mt.pbrMetallicRoughness.baseColorTexture={index:m.ti};gltf.materials.push(mt);});
+      data.mesh.forEach((m,i)=>{
+        const pMin=[Infinity,Infinity,Infinity],pMax=[-Infinity,-Infinity,-Infinity];
+        for(let v=0;v<m.pos.length;v+=3){pMin[0]=Math.min(pMin[0],m.pos[v]);pMin[1]=Math.min(pMin[1],m.pos[v+1]);pMin[2]=Math.min(pMin[2],m.pos[v+2]);pMax[0]=Math.max(pMax[0],m.pos[v]);pMax[1]=Math.max(pMax[1],m.pos[v+1]);pMax[2]=Math.max(pMax[2],m.pos[v+2]);}
+        const pA=addA(addBV(new Uint8Array(m.pos.buffer),34962),5126,m.vc,'VEC3',pMin,pMax);
+        const nA=addA(addBV(new Uint8Array(m.nrm.buffer),34962),5126,m.vc,'VEC3');
+        const uvf=new Float32Array(m.uv.length);for(let u=0;u<m.uv.length;u+=2){uvf[u]=m.uv[u];uvf[u+1]=m.uv[u+1];}
+        const uA=addA(addBV(new Uint8Array(uvf.buffer),34962),5126,m.vc,'VEC2');
+        const iA=addA(addBV(new Uint8Array(m.idx.buffer),34963),5123,m.ic,'SCALAR');
+        gltf.meshes.push({name:m.name,primitives:[{attributes:{POSITION:pA,NORMAL:nA,TEXCOORD_0:uA},indices:iA,material:i,mode:4}]});
+      });
+      const root={name:data.filename,children:[]};data.mesh.forEach((_,i)=>{gltf.nodes.push({name:data.mesh[i].name,mesh:i});root.children.push(i+1);});
+      gltf.nodes.unshift(root);
+      const tb=new Uint8Array(bo);let off=0;bd.forEach(d=>{tb.set(d instanceof Uint8Array?d:new Uint8Array(d),off);off+=d.byteLength;});
+      gltf.buffers.push({byteLength:tb.byteLength});
+      const js=JSON.stringify(gltf);const jb=new TextEncoder().encode(js);
+      const jp=(4-jb.length%4)%4,pjl=jb.length+jp;
+      const bp=(4-tb.byteLength%4)%4,pbl=tb.byteLength+bp;
+      const tl=12+8+pjl+8+pbl;
+      const glb=new ArrayBuffer(tl);const dv=new DataView(glb);const u8=new Uint8Array(glb);
+      let o=0;dv.setUint32(o,0x46546C67,true);o+=4;dv.setUint32(o,2,true);o+=4;dv.setUint32(o,tl,true);o+=4;
+      dv.setUint32(o,pjl,true);o+=4;dv.setUint32(o,0x4E4F534A,true);o+=4;u8.set(jb,o);o+=jb.length;for(let i=0;i<jp;i++)u8[o++]=0x20;
+      dv.setUint32(o,pbl,true);o+=4;dv.setUint32(o,0x004E4942,true);o+=4;u8.set(tb,o);
+      glbBlob=new Blob([glb],{type:'model/gltf-binary'});
+      log('GLB ready: '+Math.round(glbBlob.size/1024)+'KB','success');
+      document.getElementById('btn-download').disabled=false;
+    }
+
+    function download(){if(!glbBlob||!data)return;const a=document.createElement('a');a.href=URL.createObjectURL(glbBlob);a.download=data.filename+'.glb';a.click();log('Downloaded '+data.filename+'.glb','success');}
+
+    document.getElementById('drop-zone').onclick=()=>document.getElementById('file-input').click();
+    document.getElementById('drop-zone').ondragover=e=>e.preventDefault();
+    document.getElementById('drop-zone').ondrop=e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f&&f.name.endsWith('.gr2'))f.arrayBuffer().then(b=>loadFile(b,f.name));else log('Drop a .gr2 file','error');};
+    document.getElementById('file-input').onchange=e=>{const f=e.target.files[0];if(f)f.arrayBuffer().then(b=>loadFile(b,f.name));};
+    document.getElementById('btn-convert').onclick=convert;
+    document.getElementById('btn-download').onclick=download;
+
+    window.onload=async()=>{log('GR2 to GLB Converter');if(!checkDeps()){setLoad('Missing dependencies');return;}initScene();await initGr2();};
+  </script>
+</body>
+</html>
