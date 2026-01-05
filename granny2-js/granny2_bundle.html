@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Granny2.js Complete Bundle</title>
+    <meta charset="utf-8">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #00d9ff;
+            border-bottom: 2px solid #00d9ff;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #ff6b6b;
+            margin-top: 30px;
+        }
+        .section {
+            background: #16213e;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid #0f3460;
+        }
+        input[type="file"] {
+            background: #0f3460;
+            border: 1px solid #00d9ff;
+            color: #eee;
+            padding: 12px;
+            border-radius: 6px;
+            width: 100%;
+            box-sizing: border-box;
+            cursor: pointer;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: scale(1.05);
+        }
+        button:disabled {
+            background: #444;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .status {
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+            font-weight: bold;
+        }
+        .status.loading { background: #0f3460; border-left: 4px solid #00d9ff; }
+        .status.ready { background: #1e4620; border-left: 4px solid #4caf50; }
+        .status.error { background: #4a1e1e; border-left: 4px solid #f44336; }
+        #output {
+            background: #0a0a15;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 15px;
+            height: 400px;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            white-space: pre-wrap;
+        }
+        .pass { color: #4caf50; }
+        .fail { color: #f44336; }
+        .warn { color: #ff9800; }
+        .info { color: #00d9ff; }
+        .file-info {
+            background: #0f3460;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+        .file-info h3 {
+            margin: 0 0 10px 0;
+            color: #00d9ff;
+        }
+        .file-info table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .file-info td {
+            padding: 5px 10px;
+            border-bottom: 1px solid #333;
+        }
+        .file-info td:first-child {
+            color: #888;
+            width: 150px;
+        }
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        pre {
+            background: #0a0a15;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+        }
+        code {
+            color: #4caf50;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 Granny2.js Complete Bundle</h1>
+        <p>Wrapper JavaScript para granny2.dll - Carregue arquivos GR2 diretamente no browser!</p>
+
+        <div class="section">
+            <h2>📁 1. Carregar Arquivos</h2>
+            
+            <p><strong>granny2.dll</strong> (versão 2.1.0.5):</p>
+            <input type="file" id="dllFile" accept=".dll">
+            
+            <p style="margin-top:15px"><strong>Arquivo .gr2 de teste:</strong></p>
+            <input type="file" id="gr2File" accept=".gr2">
+            
+            <div id="statusBox" class="status loading">
+                ⏳ Aguardando arquivos...
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🔧 2. Ações</h2>
+            <div class="actions">
+                <button id="btnQuick" disabled>🚀 Quick Test</button>
+                <button id="btnFull" disabled>🔬 Full Test</button>
+                <button id="btnInfo" disabled>📋 File Info</button>
+                <button id="btnMeshes" disabled>🔷 List Meshes</button>
+                <button id="btnAnims" disabled>🎬 List Animations</button>
+                <button id="btnExport" disabled>💾 Export Data</button>
+                <button id="btnClear">🗑️ Clear</button>
+            </div>
+            
+            <div id="fileInfoBox" class="file-info" style="display:none">
+                <h3>📄 File Information</h3>
+                <table id="fileInfoTable"></table>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>📜 3. Output</h2>
+            <div id="output"></div>
+        </div>
+
+        <div class="section">
+            <h2>📖 Como Usar via Console</h2>
+            <pre><code>// Após carregar os arquivos, use:
+granny.GetFileInfo(grannyFile);  // Obtém info do arquivo
+granny.GetAnimations(fileInfoPtr);  // Lista animações
+granny.CopyMeshVertices(meshPtr);  // Copia vértices
+// ... ver documentação completa</code></pre>
+        </div>
+    </div>
+
+    <!-- SCRIPTS - Ordem importante! -->
+    
+    <!-- 1. Runtime v86 wrapper -->
+    <script src="granny2_runtime.js"></script>
+    
+    <!-- 2. PE Environment -->
+    <script src="pe_env.js"></script>
+    
+    <!-- 3. Granny2 wrapper -->
+    <script src="granny2.js"></script>
+    
+    <!-- 4. Additions (opcional) -->
+    <script src="granny2_additions.js"></script>
+
+    <script>
+        // ============================================
+        // ESTADO GLOBAL
+        // ============================================
+        
+        var state = {
+            dllBuffer: null,
+            gr2Buffer: null,
+            granny: null,
+            grannyFile: null,
+            fileInfo: null,
+            fileInfoPtr: null,
+            ready: false
+        };
+
+        // Expor globalmente para debug
+        window.state = state;
+
+        // ============================================
+        // UI HELPERS
+        // ============================================
+
+        var outputEl = document.getElementById('output');
+        var statusEl = document.getElementById('statusBox');
+
+        function log(text, type) {
+            var line = document.createElement('div');
+            line.textContent = text;
+            if (type) line.className = type;
+            outputEl.appendChild(line);
+            outputEl.scrollTop = outputEl.scrollHeight;
+        }
+
+        function clearOutput() {
+            outputEl.innerHTML = '';
+        }
+
+        function setStatus(text, type) {
+            statusEl.textContent = text;
+            statusEl.className = 'status ' + type;
+        }
+
+        function enableButtons() {
+            document.getElementById('btnQuick').disabled = false;
+            document.getElementById('btnFull').disabled = false;
+            document.getElementById('btnInfo').disabled = false;
+            document.getElementById('btnMeshes').disabled = false;
+            document.getElementById('btnAnims').disabled = false;
+            document.getElementById('btnExport').disabled = false;
+        }
+
+        // ============================================
+        // INICIALIZAÇÃO
+        // ============================================
+
+        function checkDependencies() {
+            var missing = [];
+            
+            if (typeof v86 === 'undefined' && typeof Win32Runtime === 'undefined') {
+                missing.push('granny2_runtime.js ou pe_env.js');
+            }
+            if (typeof Granny2 === 'undefined') {
+                missing.push('granny2.js');
+            }
+            
+            if (missing.length > 0) {
+                log('⚠️ Scripts faltando: ' + missing.join(', '), 'warn');
+                log('Coloque os arquivos .js na mesma pasta do HTML', 'info');
+                return false;
+            }
+            
+            log('✓ Todos os scripts carregados', 'pass');
+            return true;
+        }
+
+        function checkReady() {
+            if (!state.dllBuffer || !state.gr2Buffer) return;
+            
+            try {
+                log('\n--- Inicializando Granny2 ---', 'info');
+                
+                // Cria instância
+                state.granny = new Granny2(state.dllBuffer);
+                window.granny = state.granny; // Expor para console
+                
+                log('✓ Granny2 instanciado', 'pass');
+                
+                // Aplica additions se disponível
+                if (typeof Granny2Additions !== 'undefined') {
+                    Granny2Additions.apply(Granny2);
+                    log('✓ Granny2Additions aplicado', 'pass');
+                }
+                
+                // Verifica versão
+                if (state.granny.VersionMatch(2, 1, 0, 5)) {
+                    log('✓ Versão da DLL: 2.1.0.5', 'pass');
+                } else {
+                    log('⚠️ Versão da DLL incompatível!', 'warn');
+                }
+                
+                // Carrega arquivo GR2
+                state.grannyFile = state.granny.ReadEntireFileFromMemory(state.gr2Buffer);
+                if (state.grannyFile) {
+                    log('✓ Arquivo GR2 carregado: 0x' + state.grannyFile.toString(16), 'pass');
+                    window.grannyFile = state.grannyFile;
+                } else {
+                    throw new Error('Falha ao carregar GR2');
+                }
+                
+                // Obtém FileInfo
+                state.fileInfoPtr = state.granny.GetFileInfo(state.grannyFile);
+                if (state.fileInfoPtr) {
+                    log('✓ FileInfo obtido: 0x' + state.fileInfoPtr.toString(16), 'pass');
+                    window.fileInfoPtr = state.fileInfoPtr;
+                    
+                    // Parse estrutura
+                    state.fileInfo = Granny2.readStructure(
+                        state.granny.runtime.cpu,
+                        state.fileInfoPtr,
+                        Granny2.structs.granny_file_info
+                    );
+                    window.fileInfo = state.fileInfo;
+                }
+                
+                state.ready = true;
+                enableButtons();
+                setStatus('✓ Pronto! Use os botões acima ou o console.', 'ready');
+                
+                log('\n--- Variáveis disponíveis no console ---', 'info');
+                log('  granny      - Instância Granny2', 'info');
+                log('  grannyFile  - Ponteiro do arquivo', 'info');
+                log('  fileInfoPtr - Ponteiro do FileInfo', 'info');
+                log('  fileInfo    - Estrutura parseada', 'info');
+                
+            } catch (e) {
+                setStatus('✗ Erro: ' + e.message, 'error');
+                log('ERRO: ' + e.message, 'fail');
+                console.error(e);
+            }
+        }
+
+        // ============================================
+        // AÇÕES
+        // ============================================
+
+        function showFileInfo() {
+            if (!state.fileInfo) return;
+            
+            var fi = state.fileInfo;
+            var table = document.getElementById('fileInfoTable');
+            var box = document.getElementById('fileInfoBox');
+            
+            table.innerHTML = `
+                <tr><td>Arquivo:</td><td>${fi.FromFileName || 'N/A'}</td></tr>
+                <tr><td>Modelos:</td><td>${fi.ModelCount}</td></tr>
+                <tr><td>Meshes:</td><td>${fi.MeshCount}</td></tr>
+                <tr><td>Skeletons:</td><td>${fi.SkeletonCount}</td></tr>
+                <tr><td>Animações:</td><td>${fi.AnimationCount}</td></tr>
+                <tr><td>Texturas:</td><td>${fi.TextureCount}</td></tr>
+                <tr><td>Materiais:</td><td>${fi.MaterialCount}</td></tr>
+            `;
+            
+            box.style.display = 'block';
+            
+            log('\n--- File Info ---', 'info');
+            log('Arquivo: ' + (fi.FromFileName || 'N/A'), 'info');
+            log('Modelos: ' + fi.ModelCount, 'info');
+            log('Meshes: ' + fi.MeshCount, 'info');
+            log('Skeletons: ' + fi.SkeletonCount, 'info');
+            log('Animações: ' + fi.AnimationCount, 'info');
+            log('Texturas: ' + fi.TextureCount, 'info');
+            log('Materiais: ' + fi.MaterialCount, 'info');
+        }
+
+        function listMeshes() {
+            if (!state.fileInfo) return;
+            
+            log('\n--- Meshes ---', 'info');
+            
+            var meshes = state.fileInfo.Meshes || [];
+            if (meshes.length === 0) {
+                log('Nenhuma mesh encontrada', 'warn');
+                return;
+            }
+            
+            for (var i = 0; i < meshes.length; i++) {
+                var mesh = meshes[i];
+                var vertCount = state.granny.GetMeshVertexCount(mesh._ptr);
+                var indexCount = state.granny.GetMeshIndexCount(mesh._ptr);
+                var isRigid = state.granny.MeshIsRigid(mesh._ptr);
+                
+                log('Mesh[' + i + ']: ' + mesh.Name, 'pass');
+                log('  Vértices: ' + vertCount + ', Índices: ' + indexCount + ', Rígida: ' + isRigid, 'info');
+            }
+        }
+
+        function listAnimations() {
+            if (!state.granny.GetAnimations) {
+                log('GetAnimations não disponível (carregue granny2_additions.js)', 'warn');
+                return;
+            }
+            
+            log('\n--- Animações ---', 'info');
+            
+            var anims = state.granny.GetAnimations(state.fileInfoPtr);
+            if (anims.length === 0) {
+                log('Nenhuma animação encontrada', 'warn');
+                return;
+            }
+            
+            for (var i = 0; i < anims.length; i++) {
+                var anim = anims[i];
+                log('Animation[' + i + ']: ' + anim.name, 'pass');
+                log('  Duração: ' + anim.duration.toFixed(3) + 's, TrackGroups: ' + anim.trackGroupCount, 'info');
+            }
+        }
+
+        function exportData() {
+            if (!state.fileInfo) return;
+            
+            log('\n--- Exportando Dados ---', 'info');
+            
+            var exportData = {
+                fileName: state.fileInfo.FromFileName,
+                models: [],
+                meshes: [],
+                animations: []
+            };
+            
+            // Exporta meshes
+            var meshes = state.fileInfo.Meshes || [];
+            for (var i = 0; i < meshes.length; i++) {
+                var mesh = meshes[i];
+                var vertCount = state.granny.GetMeshVertexCount(mesh._ptr);
+                var indexCount = state.granny.GetMeshIndexCount(mesh._ptr);
+                
+                var meshData = {
+                    name: mesh.Name,
+                    vertexCount: vertCount,
+                    indexCount: indexCount,
+                    isRigid: state.granny.MeshIsRigid(mesh._ptr)
+                };
+                
+                // Copia dados
+                try {
+                    var vertices = state.granny.CopyMeshVertices(mesh._ptr);
+                    var indices = state.granny.CopyMeshIndices(mesh._ptr);
+                    meshData.verticesBase64 = btoa(String.fromCharCode.apply(null, vertices));
+                    meshData.indicesBase64 = btoa(String.fromCharCode.apply(null, indices));
+                    log('✓ Mesh "' + mesh.Name + '" exportada', 'pass');
+                } catch (e) {
+                    log('⚠️ Erro ao exportar mesh "' + mesh.Name + '": ' + e.message, 'warn');
+                }
+                
+                exportData.meshes.push(meshData);
+            }
+            
+            // Salva como JSON
+            var blob = new Blob([JSON.stringify(exportData, null, 2)], {type: 'application/json'});
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'gr2_export.json';
+            a.click();
+            
+            log('✓ Dados exportados para gr2_export.json', 'pass');
+        }
+
+        function quickTest() {
+            clearOutput();
+            log('=== QUICK TEST ===\n', 'info');
+            
+            try {
+                // Versão
+                var versionOk = state.granny.VersionMatch(2, 1, 0, 5);
+                log('Version match: ' + (versionOk ? 'OK' : 'FAIL'), versionOk ? 'pass' : 'fail');
+                
+                // File loaded
+                log('File loaded: OK (0x' + state.grannyFile.toString(16) + ')', 'pass');
+                
+                // FileInfo
+                log('FileInfo: OK (0x' + state.fileInfoPtr.toString(16) + ')', 'pass');
+                
+                // Contagens
+                var fi = state.fileInfo;
+                log('\nFile contents:', 'info');
+                log('  Models:     ' + fi.ModelCount, 'info');
+                log('  Meshes:     ' + fi.MeshCount, 'info');
+                log('  Skeletons:  ' + fi.SkeletonCount, 'info');
+                log('  Animations: ' + fi.AnimationCount, 'info');
+                log('  Textures:   ' + fi.TextureCount, 'info');
+                log('  Materials:  ' + fi.MaterialCount, 'info');
+                
+                log('\n=== QUICK TEST PASSED ===', 'pass');
+                
+            } catch (e) {
+                log('ERRO: ' + e.message, 'fail');
+                console.error(e);
+            }
+        }
+
+        // ============================================
+        // EVENT HANDLERS
+        // ============================================
+
+        document.getElementById('dllFile').addEventListener('change', function(e) {
+            var file = e.target.files[0];
+            if (!file) return;
+
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                state.dllBuffer = new Uint8Array(e.target.result);
+                log('✓ DLL carregada: ' + file.name + ' (' + state.dllBuffer.length + ' bytes)', 'pass');
+                checkReady();
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        document.getElementById('gr2File').addEventListener('change', function(e) {
+            var file = e.target.files[0];
+            if (!file) return;
+
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                state.gr2Buffer = e.target.result;
+                log('✓ GR2 carregado: ' + file.name + ' (' + state.gr2Buffer.byteLength + ' bytes)', 'pass');
+                checkReady();
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        document.getElementById('btnQuick').addEventListener('click', quickTest);
+        document.getElementById('btnInfo').addEventListener('click', showFileInfo);
+        document.getElementById('btnMeshes').addEventListener('click', listMeshes);
+        document.getElementById('btnAnims').addEventListener('click', listAnimations);
+        document.getElementById('btnExport').addEventListener('click', exportData);
+        document.getElementById('btnClear').addEventListener('click', clearOutput);
+        
+        document.getElementById('btnFull').addEventListener('click', function() {
+            if (typeof Granny2Test !== 'undefined') {
+                clearOutput();
+                Granny2Test.runAll(state.granny, state.gr2Buffer, { verbose: true });
+            } else {
+                log('Granny2Test não disponível (carregue granny2_test.js)', 'warn');
+            }
+        });
+
+        // ============================================
+        // INICIALIZAÇÃO
+        // ============================================
+
+        log('=== Granny2.js Bundle ===\n', 'info');
+        checkDependencies();
+        log('\n1. Carregue a granny2.dll (versão 2.1.0.5)', 'info');
+        log('2. Carregue um arquivo .gr2', 'info');
+        log('3. Use os botões ou o console JavaScript\n', 'info');
+
+    </script>
+</body>
+</html>

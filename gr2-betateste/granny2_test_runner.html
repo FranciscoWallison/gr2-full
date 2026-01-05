@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Granny2.js Test Runner</title>
+    <style>
+        body {
+            font-family: 'Consolas', 'Monaco', monospace;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            margin: 0;
+        }
+        h1 {
+            color: #569cd6;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .section {
+            background: #252526;
+            border: 1px solid #3c3c3c;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .section h2 {
+            color: #4ec9b0;
+            margin-top: 0;
+        }
+        input[type="file"] {
+            background: #3c3c3c;
+            border: 1px solid #555;
+            color: #d4d4d4;
+            padding: 10px;
+            border-radius: 4px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        button {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #1177bb;
+        }
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+        #output {
+            background: #0d0d0d;
+            border: 1px solid #333;
+            padding: 15px;
+            height: 400px;
+            overflow-y: auto;
+            font-size: 13px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .pass { color: #4ec9b0; }
+        .fail { color: #f44747; }
+        .warn { color: #dcdcaa; }
+        .info { color: #9cdcfe; }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status.ready { background: #264f36; border: 1px solid #4ec9b0; }
+        .status.error { background: #5a1d1d; border: 1px solid #f44747; }
+        .status.loading { background: #2d4a5e; border: 1px solid #569cd6; }
+        #results {
+            display: flex;
+            gap: 20px;
+            margin-top: 15px;
+        }
+        .result-box {
+            flex: 1;
+            padding: 15px;
+            border-radius: 4px;
+            text-align: center;
+        }
+        .result-box.passed { background: #264f36; }
+        .result-box.failed { background: #5a1d1d; }
+        .result-box.skipped { background: #4a4a20; }
+        .result-box span {
+            font-size: 32px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Granny2.js Test Runner</h1>
+
+        <div class="section">
+            <h2>1. Carregar Arquivos</h2>
+            
+            <p><strong>granny2.dll:</strong></p>
+            <input type="file" id="dllFile" accept=".dll">
+            
+            <p><strong>Arquivo .gr2 de teste:</strong></p>
+            <input type="file" id="gr2File" accept=".gr2">
+            
+            <div id="statusBox" class="status loading">
+                Aguardando arquivos...
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>2. Executar Testes</h2>
+            <button id="btnQuick" disabled>🚀 Quick Test</button>
+            <button id="btnFull" disabled>🔬 Full Test Suite</button>
+            <button id="btnClear">🗑️ Limpar Output</button>
+            
+            <div id="results" style="display: none;">
+                <div class="result-box passed">
+                    <span id="passedCount">0</span>
+                    <p>Passou</p>
+                </div>
+                <div class="result-box failed">
+                    <span id="failedCount">0</span>
+                    <p>Falhou</p>
+                </div>
+                <div class="result-box skipped">
+                    <span id="skippedCount">0</span>
+                    <p>Pulados</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>3. Output</h2>
+            <div id="output"></div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <!-- Você precisa incluir estes arquivos: -->
+    <!-- <script src="win32runtime.js"></script> -->
+    <!-- <script src="granny2.js"></script> -->
+    <!-- <script src="granny2_additions.js"></script> -->
+    <!-- <script src="granny2_test.js"></script> -->
+
+    <script>
+        // ============================================
+        // ESTADO GLOBAL
+        // ============================================
+        
+        var state = {
+            dllBuffer: null,
+            gr2Buffer: null,
+            granny: null,
+            ready: false
+        };
+
+        // ============================================
+        // UI HELPERS
+        // ============================================
+
+        var outputEl = document.getElementById('output');
+        var statusEl = document.getElementById('statusBox');
+        var resultsEl = document.getElementById('results');
+
+        function appendOutput(text, className) {
+            var line = document.createElement('div');
+            line.textContent = text;
+            if (className) line.className = className;
+            outputEl.appendChild(line);
+            outputEl.scrollTop = outputEl.scrollHeight;
+        }
+
+        function clearOutput() {
+            outputEl.innerHTML = '';
+        }
+
+        function setStatus(text, type) {
+            statusEl.textContent = text;
+            statusEl.className = 'status ' + type;
+        }
+
+        function updateResults(results) {
+            resultsEl.style.display = 'flex';
+            document.getElementById('passedCount').textContent = results.passed;
+            document.getElementById('failedCount').textContent = results.failed;
+            document.getElementById('skippedCount').textContent = results.skipped;
+        }
+
+        function checkReady() {
+            if (state.dllBuffer && state.gr2Buffer) {
+                try {
+                    // Inicializa Granny2
+                    state.granny = new Granny2(state.dllBuffer);
+                    
+                    // Aplica additions se disponível
+                    if (typeof Granny2Additions !== 'undefined') {
+                        Granny2Additions.apply(Granny2);
+                        appendOutput('[INFO] Granny2Additions aplicado', 'info');
+                    }
+
+                    state.ready = true;
+                    document.getElementById('btnQuick').disabled = false;
+                    document.getElementById('btnFull').disabled = false;
+                    setStatus('✓ Pronto para testar!', 'ready');
+                    appendOutput('[INFO] Granny2 inicializado com sucesso', 'info');
+
+                } catch (e) {
+                    setStatus('✗ Erro ao inicializar: ' + e.message, 'error');
+                    appendOutput('[ERROR] ' + e.message, 'fail');
+                    console.error(e);
+                }
+            }
+        }
+
+        // ============================================
+        // OVERRIDE DE CONSOLE PARA OUTPUT
+        // ============================================
+
+        var originalConsole = {
+            log: console.log,
+            warn: console.warn,
+            error: console.error
+        };
+
+        function hookConsole() {
+            console.log = function() {
+                var text = Array.prototype.slice.call(arguments).join(' ');
+                
+                // Detecta tipo pela cor ANSI ou prefixo
+                var className = '';
+                if (text.includes('[PASS]') || text.includes('\x1b[32m')) className = 'pass';
+                else if (text.includes('[FAIL]') || text.includes('\x1b[31m')) className = 'fail';
+                else if (text.includes('[WARN]') || text.includes('\x1b[33m')) className = 'warn';
+                else if (text.includes('[INFO]') || text.includes('\x1b[36m')) className = 'info';
+
+                // Remove códigos ANSI
+                text = text.replace(/\x1b\[\d+m/g, '');
+                
+                appendOutput(text, className);
+                originalConsole.log.apply(console, arguments);
+            };
+
+            console.warn = function() {
+                var text = Array.prototype.slice.call(arguments).join(' ');
+                appendOutput('[WARN] ' + text, 'warn');
+                originalConsole.warn.apply(console, arguments);
+            };
+
+            console.error = function() {
+                var text = Array.prototype.slice.call(arguments).join(' ');
+                appendOutput('[ERROR] ' + text, 'fail');
+                originalConsole.error.apply(console, arguments);
+            };
+        }
+
+        // ============================================
+        // EVENT HANDLERS
+        // ============================================
+
+        document.getElementById('dllFile').addEventListener('change', function(e) {
+            var file = e.target.files[0];
+            if (!file) return;
+
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                state.dllBuffer = new Uint8Array(e.target.result);
+                appendOutput('[INFO] DLL carregada: ' + file.name + ' (' + state.dllBuffer.length + ' bytes)', 'info');
+                checkReady();
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        document.getElementById('gr2File').addEventListener('change', function(e) {
+            var file = e.target.files[0];
+            if (!file) return;
+
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                state.gr2Buffer = e.target.result;
+                appendOutput('[INFO] GR2 carregado: ' + file.name + ' (' + state.gr2Buffer.byteLength + ' bytes)', 'info');
+                checkReady();
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        document.getElementById('btnQuick').addEventListener('click', function() {
+            if (!state.ready) return;
+            clearOutput();
+            hookConsole();
+            
+            appendOutput('Iniciando Quick Test...\n', 'info');
+            
+            setTimeout(function() {
+                var success = Granny2Test.quick(state.granny, state.gr2Buffer);
+                appendOutput('\nResultado: ' + (success ? 'SUCESSO' : 'FALHA'), success ? 'pass' : 'fail');
+            }, 100);
+        });
+
+        document.getElementById('btnFull').addEventListener('click', function() {
+            if (!state.ready) return;
+            clearOutput();
+            hookConsole();
+            
+            appendOutput('Iniciando Full Test Suite...\n', 'info');
+            
+            setTimeout(function() {
+                var results = Granny2Test.runAll(state.granny, state.gr2Buffer, {
+                    verbose: true,
+                    stopOnError: false
+                });
+                updateResults(results);
+            }, 100);
+        });
+
+        document.getElementById('btnClear').addEventListener('click', function() {
+            clearOutput();
+            resultsEl.style.display = 'none';
+        });
+
+        // ============================================
+        // INICIALIZAÇÃO
+        // ============================================
+
+        appendOutput('=== Granny2.js Test Runner ===\n', 'info');
+        appendOutput('1. Carregue a granny2.dll', 'info');
+        appendOutput('2. Carregue um arquivo .gr2 de teste', 'info');
+        appendOutput('3. Clique em "Quick Test" ou "Full Test Suite"\n', 'info');
+
+        // Verifica se scripts necessários estão carregados
+        if (typeof Granny2 === 'undefined') {
+            appendOutput('[WARN] granny2.js não carregado - inclua o script', 'warn');
+        }
+        if (typeof Granny2Test === 'undefined') {
+            appendOutput('[WARN] granny2_test.js não carregado - inclua o script', 'warn');
+        }
+        if (typeof Win32Runtime === 'undefined') {
+            appendOutput('[WARN] Win32Runtime não carregado - inclua o script', 'warn');
+        }
+    </script>
+</body>
+</html>
